@@ -1,0 +1,811 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useApp } from "@/components/AppContext";
+import { ClubBadge } from "@/components/ClubBadge";
+import { StatePanel } from "@/components/StatePanel";
+import { api } from "@/lib/api/client";
+import type {
+  Fixture,
+  FixtureOdds,
+  MarketCategory,
+  MarketKey,
+  MatchEvent,
+  ProbabilityExplanation,
+} from "@/types/api";
+
+function formatClock(clockSeconds: number | null | undefined, status: string): string {
+  if (status === "completed") return "90' FULL TIME";
+  if (status === "upcoming") return "PRE-MATCH";
+  const sec = clockSeconds ?? 0;
+  const min = Math.max(1, Math.min(90, Math.round((sec / 480) * 90)));
+  return `${min}' IN PLAY`;
+}
+
+function formatCountdown(secondsRemaining: number): string {
+  const clamped = Math.max(0, Math.floor(secondsRemaining));
+  const mins = Math.floor(clamped / 60);
+  const secs = clamped % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+export default function MatchDetailPage() {
+  const params = useParams<{ id: string }>();
+  const fixtureId = params?.id ?? "";
+  const { slip, toggleSlipSelection } = useApp();
+
+  const [fixture, setFixture] = useState<Fixture | null>(null);
+  const [odds, setOdds] = useState<FixtureOdds | null>(null);
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [explainer, setExplainer] = useState<ProbabilityExplanation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  // Market category tab & search
+  const [marketCategory, setMarketCategory] = useState<"all" | MarketCategory>("all");
+  const [marketSearch, setMarketSearch] = useState<string>("");
+
+  // Simulation Replay scrubber for completed matches
+  const [replayMode, setReplayMode] = useState<boolean>(false);
+  const [replaySecond, setReplaySecond] = useState<number>(480);
+
+  const loadData = useCallback(async () => {
+    if (!fixtureId) return;
+    const [fxRes, oddsRes, evRes, expRes] = await Promise.all([
+      api.fixtures.get(fixtureId),
+      api.fixtures.odds(fixtureId),
+      api.fixtures.events(fixtureId),
+      api.fixtures.explain(fixtureId),
+    ]);
+
+    if (!fxRes.ok) {
+      const f = fxRes.failure;
+      setError(f.kind === "network" ? f.message : `${f.error.code}: ${f.error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    setFixture(fxRes.data);
+    if (oddsRes.ok) setOdds(oddsRes.data);
+    if (evRes.ok) setEvents(evRes.data);
+    if (expRes.ok) setExplainer(expRes.data);
+    setError(null);
+    setLoading(false);
+  }, [fixtureId]);
+
+  useEffect(() => {
+    void loadData();
+    const timer = setInterval(() => {
+      void loadData();
+    }, 3000);
+    const clockTimer = setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+    return () => {
+      clearInterval(timer);
+      clearInterval(clockTimer);
+    };
+  }, [loadData]);
+
+  // Auto-advance replay scrubber when replay mode is active
+  useEffect(() => {
+    if (!replayMode) return;
+    const iv = setInterval(() => {
+      setReplaySecond((prev) => {
+        if (prev >= 480) {
+          setReplayMode(false);
+          return 480;
+        }
+        return Math.min(480, prev + 8);
+      });
+    }, 300);
+    return () => clearInterval(iv);
+  }, [replayMode]);
+
+  const isUpcoming = fixture?.status === "upcoming";
+  const isLive = fixture?.status === "live";
+  const isCompleted = fixture?.status === "completed";
+
+  const effectiveClock = useMemo(() => {
+    if (!fixture) return 0;
+    if (isCompleted) return replaySecond;
+    if (isLive) return fixture.clockSeconds ?? 0;
+    return 0;
+  }, [fixture, isCompleted, isLive, replaySecond]);
+
+  const visibleEvents = useMemo(() => {
+    if (!fixture || isUpcoming) return [];
+    return events.filter((ev) => ev.minute <= effectiveClock);
+  }, [events, fixture, isUpcoming, effectiveClock]);
+
+  // Compute dynamic scoreline at effectiveClock (supports Simulation Replay scrubber)
+  const displayedScore = useMemo(() => {
+    if (!fixture) return { home: 0, away: 0 };
+    if (isCompleted && effectiveClock < 480) {
+      let h = 0;
+      let a = 0;
+      for (const ev of visibleEvents) {
+        if (ev.type === "goal") {
+          if (ev.payload?.side === "home") h += 1;
+          else if (ev.payload?.side === "away") a += 1;
+        }
+      }
+      return { home: h, away: a };
+    }
+    return {
+      home: fixture.homeGoals ?? 0,
+      away: fixture.awayGoals ?? 0,
+    };
+  }, [fixture, isCompleted, effectiveClock, visibleEvents]);
+
+  // Compute deterministic 2D pitch ball coordinates from clock & latest event
+  const pitchTelemetry = useMemo(() => {
+    const lastEv = visibleEvents[visibleEvents.length - 1];
+    if (!fixture || isUpcoming || effectiveClock <= 0) {
+      return { x: 50, y: 50, label: "Awaiting Kickoff at Center Circle", side: "neutral" };
+    }
+    const side = lastEv?.payload?.side;
+    const seed = (effectiveClock * 17 + (visibleEvents.length + 1) * 31) % 100;
+    const yOffset = 22 + (seed % 56);
+    if (lastEv?.type === "goal") {
+      return {
+        x: side === "home" ? 93 : 7,
+        y: 50,
+        label: lastEv.text,
+        side: side ?? "neutral",
+      };
+    }
+    if (side === "home") {
+      return {
+        x: 62 + (seed % 26),
+        y: yOffset,
+        label: lastEv?.text || `${fixture.home.name} in attacking possession`,
+        side: "home",
+      };
+    }
+    if (side === "away") {
+      return {
+        x: 12 + (seed % 26),
+        y: yOffset,
+        label: lastEv?.text || `${fixture.away.name} pressing forward`,
+        side: "away",
+      };
+    }
+    return {
+      x: 42 + (seed % 16),
+      y: yOffset,
+      label: lastEv?.text || "Midfield tactical phase",
+      side: "neutral",
+    };
+  }, [fixture, isUpcoming, effectiveClock, visibleEvents]);
+
+  const filteredMarkets = useMemo(() => {
+    const all = odds?.markets ?? [];
+    const q = marketSearch.trim().toLowerCase();
+    return all.filter((m) => {
+      if (marketCategory !== "all" && m.category && m.category !== marketCategory) {
+        return false;
+      }
+      if (
+        q &&
+        !(m.label || m.key).toLowerCase().includes(q) &&
+        !m.options.some((o) => o.label.toLowerCase().includes(q))
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [odds, marketCategory, marketSearch]);
+
+  if (loading) {
+    return <StatePanel tone="loading" title="Loading match center telemetry..." />;
+  }
+
+  if (error || !fixture) {
+    return (
+      <StatePanel
+        tone="error"
+        title="Unable to load match"
+        detail={error ?? "Fixture not found"}
+      />
+    );
+  }
+
+  const koMs = new Date(fixture.kickoffAt).getTime();
+  const secondsToKickoff = Math.max(0, Math.round((koMs - nowMs) / 1000));
+  const matchProgressPct = Math.min(100, Math.round((effectiveClock / 480) * 100));
+
+  return (
+    <div className="space-y-6">
+      {/* Top Breadcrumb */}
+      <div className="flex items-center justify-between font-mono text-xs">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-fog transition-colors hover:text-peach"
+        >
+          ← MATCH CENTER
+        </Link>
+        <span className="text-fog">
+          MATCHDAY {fixture.matchday} • 27 MARKETS ACTIVE
+        </span>
+      </div>
+
+      {/* Broadcast Scoreboard Card */}
+      <div
+        className="pitch-grid overflow-hidden rounded-card border border-line bg-coal p-6"
+        aria-live="polite"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4 font-mono text-xs">
+          <span
+            className={`tnum inline-flex items-center gap-2 rounded-control px-3 py-1 font-bold ${
+              isLive
+                ? "bg-live/20 text-live"
+                : isUpcoming
+                  ? "border border-peach/40 bg-peach-dim text-peach"
+                  : "bg-graphite text-fog"
+            }`}
+          >
+            {isLive && <span className="live-dot h-2 w-2 rounded-full bg-live" />}
+            {isCompleted && effectiveClock < 480
+              ? `REPLAY ${Math.max(1, Math.round((effectiveClock / 480) * 90))}'`
+              : formatClock(fixture.clockSeconds, fixture.status)}
+          </span>
+
+          {isUpcoming && (
+            <span className="tnum rounded-control border border-line bg-ink px-3 py-1 text-peach">
+              AUTO-KICKOFF IN {formatCountdown(secondsToKickoff)}
+            </span>
+          )}
+          {isLive && (
+            <span className="tnum text-fog">
+              ELAPSED: {fixture.clockSeconds ?? 0}s / 480s
+            </span>
+          )}
+          {isCompleted && (
+            <span className="text-win">OFFICIAL RESULT • MARKETS SETTLED</span>
+          )}
+        </div>
+
+        <div className="my-6 grid grid-cols-3 items-center gap-4 text-center">
+          {/* Home Club */}
+          <div className="flex flex-col items-center">
+            <ClubBadge
+              shortName={fixture.home.shortName}
+              name={fixture.home.name}
+              size="lg"
+            />
+            <Link
+              href={`/clubs/${fixture.home.id}`}
+              className="mt-3 text-base font-bold text-bone transition-colors hover:text-peach sm:text-xl"
+            >
+              {fixture.home.name}
+            </Link>
+            <span className="mt-1 font-mono text-[11px] text-fog">
+              HOME • ATT {(fixture.home.attackRating ?? 1.0).toFixed(2)} / DEF{" "}
+              {(fixture.home.defenseRating ?? 1.0).toFixed(2)}
+            </span>
+          </div>
+
+          {/* Center Score / Countdown */}
+          <div className="flex flex-col items-center justify-center">
+            {isUpcoming ? (
+              <div className="rounded-card border border-line bg-ink px-5 py-3">
+                <span className="block font-mono text-[10px] uppercase tracking-widest text-fog">
+                  KICKOFF IN
+                </span>
+                <span className="tnum font-mono text-2xl font-bold text-peach sm:text-3xl">
+                  {formatCountdown(secondsToKickoff)}
+                </span>
+              </div>
+            ) : (
+              <div className="tnum rounded-card border border-line bg-ink px-6 py-3 font-mono text-3xl font-bold tracking-tight text-bone sm:text-5xl">
+                {displayedScore.home} <span className="text-fog">:</span>{" "}
+                {displayedScore.away}
+              </div>
+            )}
+          </div>
+
+          {/* Away Club */}
+          <div className="flex flex-col items-center">
+            <ClubBadge
+              shortName={fixture.away.shortName}
+              name={fixture.away.name}
+              size="lg"
+            />
+            <Link
+              href={`/clubs/${fixture.away.id}`}
+              className="mt-3 text-base font-bold text-bone transition-colors hover:text-peach sm:text-xl"
+            >
+              {fixture.away.name}
+            </Link>
+            <span className="mt-1 font-mono text-[11px] text-fog">
+              AWAY • ATT {(fixture.away.attackRating ?? 1.0).toFixed(2)} / DEF{" "}
+              {(fixture.away.defenseRating ?? 1.0).toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        {/* 2D Animated SVG Tactical Pitch Visualizer */}
+        <div className="my-5 overflow-hidden rounded-card border border-line bg-ink p-3">
+          <div className="mb-2 flex items-center justify-between font-mono text-[11px]">
+            <span className="uppercase tracking-wider text-fog">
+              2D TACTICAL PITCH TELEMETRY
+            </span>
+            <span className="truncate text-peach">{pitchTelemetry.label}</span>
+          </div>
+          <svg
+            viewBox="0 0 100 56"
+            className="h-40 w-full rounded-control border border-line bg-[#0D1722] sm:h-48"
+            role="img"
+            aria-label="2D Football Pitch Visualizer"
+          >
+            {/* Outer pitch lines */}
+            <rect
+              x="2"
+              y="2"
+              width="96"
+              height="52"
+              fill="none"
+              stroke="#242F44"
+              strokeWidth="0.6"
+            />
+            {/* Halfway line & center circle */}
+            <line x1="50" y1="2" x2="50" y2="54" stroke="#242F44" strokeWidth="0.6" />
+            <circle
+              cx="50"
+              cy="28"
+              r="7"
+              fill="none"
+              stroke="#242F44"
+              strokeWidth="0.6"
+            />
+            <circle cx="50" cy="28" r="0.8" fill="#6CA6E8" />
+            {/* Left penalty box */}
+            <rect
+              x="2"
+              y="13"
+              width="14"
+              height="30"
+              fill="none"
+              stroke="#242F44"
+              strokeWidth="0.6"
+            />
+            <rect
+              x="2"
+              y="20"
+              width="5"
+              height="16"
+              fill="none"
+              stroke="#242F44"
+              strokeWidth="0.6"
+            />
+            {/* Right penalty box */}
+            <rect
+              x="84"
+              y="13"
+              width="14"
+              height="30"
+              fill="none"
+              stroke="#242F44"
+              strokeWidth="0.6"
+            />
+            <rect
+              x="93"
+              y="20"
+              width="5"
+              height="16"
+              fill="none"
+              stroke="#242F44"
+              strokeWidth="0.6"
+            />
+
+            {/* Goal markers on timeline */}
+            {visibleEvents
+              .filter((e) => e.type === "goal")
+              .map((g, i) => {
+                const isH = g.payload?.side === "home";
+                return (
+                  <circle
+                    key={g.id || i}
+                    cx={isH ? 91 : 9}
+                    cy={18 + ((i * 7) % 20)}
+                    r="1.3"
+                    fill="#48B588"
+                    opacity="0.85"
+                  />
+                );
+              })}
+
+            {/* Active Ball Position */}
+            <circle
+              cx={pitchTelemetry.x}
+              cy={(pitchTelemetry.y / 100) * 52 + 2}
+              r="3.2"
+              fill={
+                pitchTelemetry.side === "home"
+                  ? "#6CA6E8"
+                  : pitchTelemetry.side === "away"
+                    ? "#D96B62"
+                    : "#48B588"
+              }
+              opacity="0.25"
+            />
+            <circle
+              cx={pitchTelemetry.x}
+              cy={(pitchTelemetry.y / 100) * 52 + 2}
+              r="1.5"
+              fill="#EDF1F7"
+              stroke="#6CA6E8"
+              strokeWidth="0.6"
+            />
+          </svg>
+        </div>
+
+        {/* 90-Minute Match Progress Timeline Bar + Simulation Replay Controls */}
+        <div className="space-y-2">
+          <div className="flex justify-between font-mono text-[10px] text-fog">
+            <span>0&apos; KICKOFF</span>
+            <span>45&apos; HT</span>
+            <span>90&apos; FULL TIME</span>
+          </div>
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-ink">
+            <div
+              className={`h-full transition-all duration-300 ${
+                isLive ? "bg-live" : isCompleted ? "bg-win" : "bg-peach"
+              }`}
+              style={{ width: `${matchProgressPct}%` }}
+            />
+          </div>
+
+          {/* Simulation Replay Bar for Completed Matches */}
+          {isCompleted && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-control border border-line bg-ink px-3.5 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[11px] font-bold uppercase text-peach">
+                  SIMULATION REPLAY:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (replaySecond >= 480) setReplaySecond(0);
+                    setReplayMode((v) => !v);
+                  }}
+                  className="rounded-control border border-peach/50 bg-peach-dim px-2.5 py-1 font-mono text-[11px] font-bold text-peach hover:opacity-90"
+                >
+                  {replayMode ? "Pause Replay" : "▶ Play Match Replay"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReplayMode(false);
+                    setReplaySecond(480);
+                  }}
+                  className="rounded-control border border-line bg-graphite px-2.5 py-1 font-mono text-[11px] text-fog hover:text-bone"
+                >
+                  Reset to 90&apos; FT
+                </button>
+              </div>
+              <div className="flex flex-1 items-center gap-3 sm:max-w-xs">
+                <input
+                  type="range"
+                  min={0}
+                  max={480}
+                  step={4}
+                  value={replaySecond}
+                  onChange={(e) => {
+                    setReplayMode(false);
+                    setReplaySecond(Number(e.target.value));
+                  }}
+                  className="w-full accent-[#6CA6E8]"
+                  aria-label="Replay timeline scrubber"
+                />
+                <span className="tnum w-12 text-right font-mono text-xs font-bold text-bone">
+                  {Math.max(1, Math.round((replaySecond / 480) * 90))}&apos;
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Probability Explainer & Odds Movement Tracker */}
+      {explainer && (
+        <section className="grid gap-4 lg:grid-cols-2">
+          {/* Probability Explainer */}
+          <div className="rounded-card border border-line bg-coal p-4">
+            <div className="flex items-center justify-between border-b border-line pb-2.5">
+              <h2 className="font-mono text-xs font-bold uppercase tracking-wider text-bone">
+                Probability Explainer (Poisson xG Model)
+              </h2>
+              <span className="font-mono text-[11px] text-peach">
+                Favoured: {explainer.favoredClub} (+{explainer.edgePercent}%)
+              </span>
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center font-mono text-xs">
+              <div className="rounded-control border border-line bg-ink p-2.5">
+                <span className="block text-[10px] text-fog">HOME WIN</span>
+                <span className="tnum mt-0.5 block text-sm font-bold text-bone">
+                  {explainer.winProbabilities.home}%
+                </span>
+                <span className="tnum text-[10px] text-fog">
+                  xG {explainer.expectedGoals.home.toFixed(2)}
+                </span>
+              </div>
+              <div className="rounded-control border border-line bg-ink p-2.5">
+                <span className="block text-[10px] text-fog">DRAW</span>
+                <span className="tnum mt-0.5 block text-sm font-bold text-bone">
+                  {explainer.winProbabilities.draw}%
+                </span>
+                <span className="tnum text-[10px] text-fog">
+                  Total xG {explainer.expectedGoals.total.toFixed(2)}
+                </span>
+              </div>
+              <div className="rounded-control border border-line bg-ink p-2.5">
+                <span className="block text-[10px] text-fog">AWAY WIN</span>
+                <span className="tnum mt-0.5 block text-sm font-bold text-bone">
+                  {explainer.winProbabilities.away}%
+                </span>
+                <span className="tnum text-[10px] text-fog">
+                  xG {explainer.expectedGoals.away.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            <ul className="mt-3 space-y-1.5 text-xs text-fog">
+              {explainer.factors.map((f, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="font-mono text-peach">•</span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Odds Movement Tracker & Top Scorelines */}
+          <div className="rounded-card border border-line bg-coal p-4">
+            <div className="flex items-center justify-between border-b border-line pb-2.5">
+              <h2 className="font-mono text-xs font-bold uppercase tracking-wider text-bone">
+                Odds Movement &amp; Scoreline Matrix
+              </h2>
+              <span className="font-mono text-[11px] text-fog">
+                O/U 2.5: {explainer.winProbabilities.over25}% • BTTS:{" "}
+                {explainer.winProbabilities.btts}%
+              </span>
+            </div>
+
+            {explainer.oddsMovement && (
+              <div className="mt-3 rounded-control border border-line bg-ink p-3">
+                <div className="grid grid-cols-3 gap-2 text-center font-mono text-xs">
+                  {(["home", "draw", "away"] as const).map((k) => {
+                    const openVal = explainer.oddsMovement!.opening[k];
+                    const curVal = explainer.oddsMovement!.current[k];
+                    const diff = curVal - openVal;
+                    return (
+                      <div key={k}>
+                        <span className="block text-[10px] uppercase text-fog">
+                          {k === "home"
+                            ? fixture.home.shortName
+                            : k === "away"
+                              ? fixture.away.shortName
+                              : "DRAW"}
+                        </span>
+                        <span className="tnum font-bold text-bone">
+                          {openVal.toFixed(2)} → {curVal.toFixed(2)}
+                        </span>
+                        <span
+                          className={`tnum block text-[10px] ${
+                            diff < 0
+                              ? "text-win"
+                              : diff > 0
+                                ? "text-loss"
+                                : "text-fog"
+                          }`}
+                        >
+                          {diff < 0 ? "▼ Shortening" : diff > 0 ? "▲ Drifting" : "• Stable"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 border-t border-line pt-2 font-mono text-[11px] text-fog">
+                  Driver: {explainer.oddsMovement.reason}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-3">
+              <span className="block font-mono text-[10px] uppercase tracking-wider text-fog">
+                MOST PROBABLE FULL-TIME SCORELINES:
+              </span>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {explainer.mostLikelyScorelines.map((s) => (
+                  <span
+                    key={s.score}
+                    className="tnum rounded-control border border-line bg-graphite px-2.5 py-1 font-mono text-xs text-bone"
+                  >
+                    {s.score}{" "}
+                    <span className="text-peach">({s.probability}%)</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 27 Betting Markets Suite with Category Filter */}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-coal p-3.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                { id: "all", label: `All Markets (${odds?.markets.length ?? 27})` },
+                { id: "result", label: "1. Match Result (7)" },
+                { id: "goals", label: "2. Goals Markets (15)" },
+                { id: "combo", label: "3. Combinations (5)" },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setMarketCategory(tab.id)}
+                className={`min-h-[36px] rounded-control border px-3 py-1.5 font-mono text-xs font-semibold transition-colors ${
+                  marketCategory === tab.id
+                    ? "border-peach bg-peach-dim text-peach"
+                    : "border-line bg-ink text-fog hover:text-bone"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              value={marketSearch}
+              onChange={(e) => setMarketSearch(e.target.value)}
+              placeholder="Filter markets (e.g. Handicap, Score, BTTS)..."
+              className="rounded-control border border-line bg-ink px-3 py-1.5 text-xs text-bone placeholder:text-fog focus:border-peach focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {filteredMarkets.length === 0 ? (
+          <StatePanel tone="empty" title="No markets match your filter" />
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {filteredMarkets.map((market) => {
+              const isGridMarket = market.options.length > 4;
+              return (
+                <div
+                  key={market.key}
+                  className={`rounded-card border border-line bg-coal p-4 ${
+                    market.options.length >= 9 ? "md:col-span-2" : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between border-b border-line pb-2.5">
+                    <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-bone">
+                      {market.label || market.key.replace(/_/g, " ")}
+                    </h3>
+                    {market.category && (
+                      <span className="rounded-control bg-graphite px-2 py-0.5 font-mono text-[10px] uppercase text-fog">
+                        {market.category}
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    className={`mt-3 grid gap-2 ${
+                      market.options.length >= 9
+                        ? " sm:grid-cols-3 lg:grid-cols-4"
+                        : isGridMarket
+                          ? "sm:grid-cols-2"
+                          : "grid-cols-1"
+                    }`}
+                  >
+                    {market.options.map((opt) => {
+                      const selected = slip.some(
+                        (s) => s.fixtureId === fixture.id && s.oddsId === opt.oddsId,
+                      );
+                      const disabled = !isUpcoming || opt.suspended;
+                      return (
+                        <button
+                          key={opt.oddsId}
+                          type="button"
+                          aria-pressed={selected}
+                          disabled={disabled}
+                          onClick={() =>
+                            toggleSlipSelection({
+                              fixtureId: fixture.id,
+                              fixtureLabel: `MD ${fixture.matchday} • ${fixture.home.shortName} v ${fixture.away.shortName}`,
+                              market: market.key as MarketKey,
+                              oddsId: opt.oddsId,
+                              version: opt.version,
+                              label: `${fixture.home.shortName} v ${fixture.away.shortName} — ${opt.label}`,
+                              decimal: opt.decimal,
+                            })
+                          }
+                          className={`flex min-h-[42px] w-full items-center justify-between gap-2 rounded-control border px-3 py-2 text-xs transition-colors ${
+                            selected
+                              ? "border-peach bg-peach-dim text-peach"
+                              : disabled
+                                ? "cursor-not-allowed border-line bg-ink/40 text-fog/40"
+                                : "border-line bg-graphite text-bone hover:border-peach/60"
+                          }`}
+                        >
+                          <span className="truncate text-left font-medium">
+                            {opt.label}
+                          </span>
+                          <span className="tnum shrink-0 font-mono font-bold">
+                            {opt.decimal.toFixed(2)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Live Commentary Feed */}
+      <section className="space-y-3">
+        <h2 className="font-mono text-xs font-bold uppercase tracking-wider text-bone">
+          Live Match Telemetry &amp; Commentary
+        </h2>
+        {visibleEvents.length === 0 ? (
+          <StatePanel
+            tone="empty"
+            title={
+              isUpcoming
+                ? `Match kicks off automatically in ${formatCountdown(secondsToKickoff)}. Place your pre-match wagers across all 27 markets above.`
+                : "Awaiting opening match telemetry..."
+            }
+          />
+        ) : (
+          <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-coal">
+            {[...visibleEvents].reverse().map((ev, idx) => {
+              const displayMin =
+                ev.payload?.display_minute ??
+                Math.max(1, Math.min(90, Math.round((ev.minute / 480) * 90)));
+              const isGoal = ev.type === "goal";
+              const isCard = ev.type === "card";
+              return (
+                <li
+                  key={ev.id || idx}
+                  className={`flex items-center gap-4 px-4 py-3 text-xs ${
+                    isGoal ? "bg-win/5" : ""
+                  }`}
+                >
+                  <span className="tnum w-10 font-mono font-bold text-fog">
+                    {displayMin}&apos;
+                  </span>
+                  <span
+                    className={`w-24 shrink-0 rounded-control px-2 py-0.5 text-center font-mono text-[10px] font-bold uppercase ${
+                      isGoal
+                        ? "border border-win/40 bg-win/20 text-win"
+                        : isCard
+                          ? "border border-peach/40 bg-peach-dim text-peach"
+                          : "bg-graphite text-fog"
+                    }`}
+                  >
+                    {ev.type.replace("_", " ")}
+                  </span>
+                  <span className={isGoal ? "font-semibold text-bone" : "text-bone"}>
+                    {ev.text}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
