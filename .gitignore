@@ -13,9 +13,9 @@ build/
 
 # Node / Next.js
 node_modules/
-frontend/.next/
-frontend/out/
-frontend/coverage/
+.next/
+out/
+coverage/
 *.tsbuildinfo
 
 # Environment & Local files
@@ -25,3 +25,6 @@ frontend/coverage/
 *.deb
 *.log
 .DS_Store
+
+# Vercel
+.vercel

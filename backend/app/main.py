@@ -1,7 +1,8 @@
+import os
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -15,91 +16,13 @@ from app.core.database import AsyncSessionLocal
 from app.models.fixture import Fixture
 from app.models.user import User
 from app.schemas.user import UserOut
-from engine.simulator import MATCH_DURATION_SECONDS, MatchEngine
-
-PRE_MATCH_COUNTDOWN_SECONDS = 240  # 4 minutes between matchdays
-
-
-def _parse_iso(ts: str) -> datetime:
-    try:
-        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt
-    except Exception:
-        return datetime.now(timezone.utc)
-
+from app.services.simulation_tick import run_simulation_tick
 
 async def _background_match_loop():
-    """Autonomous Virtual Football Universe scheduler:
-    1. Ticks all currently `live` matches forward every second.
-    2. When a matchday finishes (`live` -> `completed`), schedules the next `upcoming`
-       matchday to kick off exactly 4 minutes (240 seconds) later, and schedules subsequent
-       matchdays in 12-minute intervals (8m match + 4m break).
-    3. When `now >= kickoff_at` for the next `upcoming` matchday (and no matches are currently live),
-       automatically kicks off all fixtures in that matchday simultaneously.
-    """
+    """Local/long-running hosts: drive the stateless simulation tick every second."""
     while True:
         try:
-            if settings.SIMULATION_PAUSED:
-                await asyncio.sleep(1.0)
-                continue
-            now = datetime.now(timezone.utc)
-            async with AsyncSessionLocal() as session:
-                res = await session.execute(
-                    select(Fixture)
-                    .options(selectinload(Fixture.home_club), selectinload(Fixture.away_club))
-                    .order_by(Fixture.matchday.asc(), Fixture.created_at.asc())
-                )
-                all_fixtures = res.scalars().all()
-                if all_fixtures:
-                    engine = MatchEngine(session)
-                    live_fixtures = [f for f in all_fixtures if f.status == "live"]
-                    upcoming_fixtures = [f for f in all_fixtures if f.status == "upcoming"]
-
-                    if live_fixtures:
-                        just_finished_matchday = False
-                        for fx in live_fixtures:
-                            state = await engine.get_state(fx.id)
-                            if state is None:
-                                state = await engine.initialize_match(fx, fx.home_club, fx.away_club)
-                                state = await engine.start_match(fx)
-                            next_clock = min(
-                                MATCH_DURATION_SECONDS,
-                                state.clock_seconds + settings.SIMULATION_SPEED_MULTIPLIER,
-                            )
-                            new_state = await engine.advance_tick(fx, next_clock)
-                            if new_state.status == "completed":
-                                just_finished_matchday = True
-
-                        # If all fixtures of the live matchday just completed, set the next matchday
-                        # kickoff to exactly 4 minutes (240s) from now!
-                        if just_finished_matchday and upcoming_fixtures:
-                            still_live = [f for f in live_fixtures if f.status == "live"]
-                            if not still_live:
-                                finish_time = datetime.now(timezone.utc)
-                                next_md = min(f.matchday for f in upcoming_fixtures)
-                                for f in upcoming_fixtures:
-                                    md_offset = f.matchday - next_md
-                                    target_ko = finish_time + timedelta(
-                                        seconds=PRE_MATCH_COUNTDOWN_SECONDS
-                                        + md_offset * (MATCH_DURATION_SECONDS + PRE_MATCH_COUNTDOWN_SECONDS)
-                                    )
-                                    f.kickoff_at = target_ko.isoformat()
-                                await session.commit()
-
-                    elif upcoming_fixtures:
-                        # No live matches right now: check the next upcoming matchday
-                        next_md = min(f.matchday for f in upcoming_fixtures)
-                        next_md_fixtures = [f for f in upcoming_fixtures if f.matchday == next_md]
-                        earliest_ko = min(_parse_iso(f.kickoff_at) for f in next_md_fixtures)
-
-                        if now >= earliest_ko:
-                            # Kick off all fixtures in `next_md` simultaneously!
-                            for fx in next_md_fixtures:
-                                state = await engine.initialize_match(fx, fx.home_club, fx.away_club)
-                                if state.status == "upcoming":
-                                    await engine.start_match(fx)
+            await run_simulation_tick()
         except asyncio.CancelledError:
             break
         except Exception:
@@ -110,7 +33,8 @@ async def _background_match_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     task = None
-    if settings.ENABLE_BACKGROUND_LOOP:
+    # Serverless (Vercel) cannot keep a loop alive; Vercel Cron calls /api/cron/tick instead
+    if settings.ENABLE_BACKGROUND_LOOP and not os.environ.get("VERCEL"):
         task = asyncio.create_task(_background_match_loop())
     try:
         yield
@@ -141,6 +65,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+_last_lazy_tick = 0.0
+
+
+@app.middleware("http")
+async def lazy_simulation_catchup(request: Request, call_next):
+    """On Vercel there is no background loop: while users are watching, catch the
+    world up to the wall clock at most every 5 seconds per function instance."""
+    global _last_lazy_tick
+    if os.environ.get("VERCEL") and request.method == "GET" and (
+        "/fixtures" in request.url.path or "/matches" in request.url.path
+    ):
+        import time
+
+        if time.monotonic() - _last_lazy_tick > 5:
+            _last_lazy_tick = time.monotonic()
+            try:
+                await run_simulation_tick()
+            except Exception:
+                pass
+    return await call_next(request)
 
 
 @app.exception_handler(HTTPException)
@@ -188,29 +134,39 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-app.include_router(auth.router)
-app.include_router(league.router)
-app.include_router(fixtures.router)
-app.include_router(matches.router)
-app.include_router(odds.router)
-app.include_router(bets.router)
-app.include_router(settlement.router)
-app.include_router(wallet.router)
-app.include_router(admin.router)
-app.include_router(platform.router)
+for _prefix in ("", "/api"):
+    _router = APIRouter(prefix=_prefix)
+    _router.include_router(auth.router)
+    _router.include_router(league.router)
+    _router.include_router(fixtures.router)
+    _router.include_router(matches.router)
+    _router.include_router(odds.router)
+    _router.include_router(bets.router)
+    _router.include_router(settlement.router)
+    _router.include_router(wallet.router)
+    _router.include_router(admin.router)
+    _router.include_router(platform.router)
 
+    @_router.get("/me", response_model=UserOut, tags=["auth"])
+    async def root_me(current_user: User = Depends(get_current_user)):
+        return UserOut(
+            id=str(current_user.id),
+            email=current_user.email,
+            display_name=current_user.display_name,
+            is_active=current_user.is_active,
+            is_admin=current_user.is_admin,
+        )
 
-@app.get("/me", response_model=UserOut, tags=["auth"])
-async def root_me(current_user: User = Depends(get_current_user)):
-    return UserOut(
-        id=str(current_user.id),
-        email=current_user.email,
-        display_name=current_user.display_name,
-        is_active=current_user.is_active,
-        is_admin=current_user.is_admin,
-    )
+    @_router.get("/cron/tick", tags=["system"])
+    async def cron_tick(request: Request):
+        """Invoked by Vercel Cron to advance the simulation (protected by CRON_SECRET)."""
+        secret = os.environ.get("CRON_SECRET")
+        if secret and request.headers.get("authorization") != f"Bearer {secret}":
+            raise HTTPException(status_code=401, detail="Invalid cron secret")
+        return await run_simulation_tick()
 
+    @_router.get("/health")
+    async def health():
+        return {"status": "ok"}
 
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
+    app.include_router(_router)

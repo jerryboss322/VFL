@@ -32,7 +32,12 @@ export type ApiFailure =
   | { kind: "http"; status: number; error: ApiErrorBody };
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; failure: ApiFailure };
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+// Monolith: FastAPI is served by the same deployment under /api.
+// For local dev against a standalone uvicorn, set NEXT_PUBLIC_API_BASE_URL=http://localhost:8000.
+function resolveApiBase(): string {
+  return process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
+}
+
 const TOKEN_STORAGE_KEY = "vfu_access_token";
 
 export function getStoredToken(): string | null {
@@ -55,17 +60,12 @@ export function setStoredToken(token: string | null): void {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
-  if (!BASE) {
-    return {
-      ok: false,
-      failure: { kind: "network", message: "NEXT_PUBLIC_API_BASE_URL is not configured" },
-    };
-  }
+  const base = resolveApiBase().replace(/\/$/, "");
   const token = getStoredToken();
   const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
   try {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await fetch(`${base}${path}`, {
       ...init,
       credentials: "include",
       cache: "no-store",
