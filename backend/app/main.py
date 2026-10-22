@@ -72,16 +72,29 @@ _last_lazy_tick = 0.0
 
 @app.middleware("http")
 async def lazy_simulation_catchup(request: Request, call_next):
-    """On Vercel there is no background loop: while users are watching, catch the
-    world up to the wall clock at most every 5 seconds per function instance."""
+    """On Vercel (where background daemon loops don't exist and Hobby plans limit cron jobs),
+    the simulation catches up seamlessly on any incoming request at most once every 2 seconds.
+    This ensures live matches, scores, timers, and settlements remain 100% accurate without
+    requiring a paid Vercel Pro cron plan."""
     global _last_lazy_tick
-    if os.environ.get("VERCEL") and request.method == "GET" and (
-        "/fixtures" in request.url.path or "/matches" in request.url.path
+    # Catch up on read or write requests touching public football/bets/admin data
+    p = request.url.path
+    if (
+        os.environ.get("VERCEL") or settings.DATABASE_URL.startswith("postgres")
+    ) and (
+        "/fixtures" in p
+        or "/matches" in p
+        or "/league" in p
+        or "/bets" in p
+        or "/admin" in p
+        or "/profile" in p
+        or "/leaderboard" in p
     ):
         import time
 
-        if time.monotonic() - _last_lazy_tick > 5:
-            _last_lazy_tick = time.monotonic()
+        now = time.monotonic()
+        if now - _last_lazy_tick > 2.0:
+            _last_lazy_tick = now
             try:
                 await run_simulation_tick()
             except Exception:
