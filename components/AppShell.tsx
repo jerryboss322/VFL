@@ -43,23 +43,23 @@ function ShellInner({ children }: { children: ReactNode }) {
   } = useApp();
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#080B11]">
+    <div className="flex min-h-screen flex-col bg-[#0F212E] text-bone">
       {/* Top Broadcast Telemetry Strip */}
-      <div className="border-b border-white/[0.06] bg-ink/90 px-4 py-2 text-[11px] backdrop-blur-md">
+      <div className="border-b border-[#213743] bg-[#0A161E] px-4 py-2 text-[11px]">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 text-fog">
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-2 font-mono text-[11px] font-semibold tracking-wider text-bone/90">
               <span className="live-dot h-2 w-2 rounded-full bg-win" />
               EUROPEAN VIRTUAL FOOTBALL NETWORK
             </span>
-            <span className="hidden sm:inline-block h-3 w-px bg-white/10" />
-            <span className="hidden sm:inline-block font-mono text-[11px] text-fog/70">
+            <span className="hidden sm:inline-block h-3 w-px bg-[#213743]" />
+            <span className="hidden sm:inline-block font-mono text-[11px] text-fog">
               6 Leagues • 116 Clubs
             </span>
           </div>
           <div className="flex items-center gap-3 font-mono text-[11px]">
-            <span className="text-fog/80">4m Pre-Match • 8m Live</span>
-            <span className="rounded-full border border-peach/30 bg-peach/10 px-2.5 py-0.5 text-[10px] font-bold tracking-widest text-peach uppercase shadow-xs">
+            <span className="text-fog">4m Pre-Match • 8m Live</span>
+            <span className="rounded bg-[#1A2C38] border border-[#2F4553] px-2.5 py-0.5 text-[10px] font-bold tracking-widest text-fog uppercase">
               Simulated Ledger (XTS)
             </span>
           </div>
@@ -67,28 +67,26 @@ function ShellInner({ children }: { children: ReactNode }) {
       </div>
 
       {/* Main Navigation Header */}
-      <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#0c121d]/90 backdrop-blur-xl shadow-lg shadow-black/20">
+      <header className="sticky top-0 z-30 border-b border-[#213743] bg-[#1A2C38]">
         <div className="mx-auto flex min-h-[68px] max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-2">
           <div className="flex items-center gap-6 lg:gap-8">
-            <Link href="/" className="group flex items-center gap-3 transition-transform hover:scale-[1.02]">
-              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-peach to-sky-600 p-[1px] shadow-md shadow-peach/20">
-                <div className="flex h-full w-full items-center justify-center rounded-[11px] bg-coal">
-                  <span className="font-mono text-xs font-black tracking-tighter text-peach">
-                    VFN
-                  </span>
-                </div>
+            <Link href="/" className="group flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded bg-[#1475E1]">
+                <span className="font-mono text-xs font-black tracking-tighter text-white">
+                  VFN
+                </span>
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-extrabold tracking-tight text-bone group-hover:text-white transition-colors">
-                  VIRTUAL <span className="bg-gradient-to-r from-peach to-sky-300 bg-clip-text text-transparent">FOOTBALL</span>
+                <span className="text-sm font-bold tracking-tight text-white">
+                  VIRTUAL FOOTBALL
                 </span>
-                <span className="font-mono text-[9px] uppercase tracking-widest text-fog/70">
+                <span className="font-mono text-[9px] uppercase tracking-wider text-fog">
                   European Exchange
                 </span>
               </div>
             </Link>
 
-            <nav aria-label="Primary" className="hidden md:flex items-center gap-1.5">
+            <nav aria-label="Primary" className="hidden md:flex items-center gap-1">
               {NAV.filter((n) => !user?.isAdmin || (n.href !== "/bets" && n.href !== "/wallet")).map(
                 (n) => {
                   const active =
@@ -97,15 +95,15 @@ function ShellInner({ children }: { children: ReactNode }) {
                     <Link
                       key={n.href}
                       href={n.href}
-                      className={`min-h-[38px] inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold tracking-wide transition-all ${
+                      className={`min-h-[34px] inline-flex items-center gap-2 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
                         active
-                          ? "bg-peach/15 text-peach border border-peach/30 shadow-xs shadow-peach/20 font-bold"
-                          : "text-fog hover:text-bone hover:bg-white/[0.04]"
+                          ? "bg-[#213743] text-white font-bold"
+                          : "text-fog hover:text-white hover:bg-[#213743]/50"
                       }`}
                     >
                       <span>{n.label}</span>
                       {n.href === "/bets" && openBets.length > 0 && (
-                        <span className="tnum rounded-full bg-peach text-ink px-1.5 py-0.2 font-mono text-[10px] font-extrabold">
+                        <span className="tnum rounded bg-[#1475E1] text-white px-1.5 py-0.2 font-mono text-[10px] font-bold">
                           {openBets.length}
                         </span>
                       )}
@@ -116,13 +114,13 @@ function ShellInner({ children }: { children: ReactNode }) {
               {user?.isAdmin && (
                 <Link
                   href="/admin"
-                  className={`min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-bold tracking-wide transition-all ${
+                  className={`min-h-[34px] inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs font-bold transition-colors ${
                     pathname?.startsWith("/admin")
-                      ? "border-peach bg-peach-dim text-peach shadow-md shadow-peach/20"
-                      : "border-peach/30 bg-peach/10 text-peach hover:bg-peach/20"
+                      ? "border-[#1475E1] bg-[#10355A] text-[#1475E1]"
+                      : "border-[#2F4553] text-[#1475E1] hover:bg-[#213743]"
                   }`}
                 >
-                  <span className="live-dot h-1.5 w-1.5 rounded-full bg-peach" />
+                  <span className="live-dot h-1.5 w-1.5 rounded-full bg-[#1475E1]" />
                   <span>Admin Operations</span>
                 </Link>
               )}
@@ -164,21 +162,21 @@ function ShellInner({ children }: { children: ReactNode }) {
                 <div className="hidden flex-col text-right sm:flex">
                   <Link
                     href="/profile"
-                    className="text-xs font-medium text-bone hover:text-peach transition-colors"
+                    className="text-xs font-medium text-white hover:text-[#1475E1] transition-colors"
                   >
                     {user.displayName}
                   </Link>
                   {user.isAdmin ? (
                     <Link
                       href="/admin"
-                      className="font-mono text-[10px] font-bold text-peach hover:underline"
+                      className="font-mono text-[10px] font-bold text-[#1475E1] hover:underline"
                     >
                       ADMIN CONSOLE →
                     </Link>
                   ) : (
                     <Link
                       href="/profile"
-                      className="font-mono text-[10px] text-fog/80 hover:text-bone"
+                      className="font-mono text-[10px] text-fog hover:text-white"
                     >
                       TRADER PROFILE →
                     </Link>
@@ -187,7 +185,7 @@ function ShellInner({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={() => void logout()}
-                  className="rounded-xl border border-white/10 bg-graphite/70 px-3.5 py-1.5 text-xs font-medium text-fog hover:border-loss/40 hover:text-loss transition-colors"
+                  className="rounded border border-[#2F4553] bg-[#0F212E] px-3.5 py-1.5 text-xs font-medium text-fog hover:text-white hover:bg-[#213743] transition-colors"
                 >
                   Sign Out
                 </button>
@@ -196,10 +194,10 @@ function ShellInner({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => setAuthModalOpen(true)}
-                className="group relative flex items-center gap-2 rounded-xl bg-gradient-to-r from-peach to-sky-400 px-4 py-2.5 text-xs font-bold text-ink shadow-md shadow-peach/25 transition-all hover:brightness-110 active:scale-[0.98]"
+                className="flex items-center gap-2 rounded bg-[#1475E1] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0E5BB8]"
               >
                 <span>Sign In • Claim 10,000 XTS</span>
-                <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span>
+                <span>→</span>
               </button>
             )}
           </div>
@@ -207,13 +205,13 @@ function ShellInner({ children }: { children: ReactNode }) {
 
         {/* Dedicated 6-League Selector Bar */}
         {leagues.length > 0 && (
-          <div className="border-t border-white/[0.06] bg-coal/70 px-4 py-2 backdrop-blur-md">
+          <div className="border-t border-[#213743] bg-[#0F212E] px-4 py-1.5">
             <div
-              className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto no-scrollbar py-0.5"
+              className="mx-auto flex max-w-7xl items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5"
               role="tablist"
               aria-label="European Leagues"
             >
-              <span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-widest text-fog/60 mr-1 hidden sm:inline">
+              <span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-wider text-fog mr-1 hidden sm:inline">
                 COMPETITION:
               </span>
               {leagues.map((lg) => {
@@ -227,24 +225,24 @@ function ShellInner({ children }: { children: ReactNode }) {
                     role="tab"
                     aria-selected={isSelected}
                     onClick={() => setSelectedLeagueId(lg.id)}
-                    className={`shrink-0 inline-flex items-center gap-2.5 rounded-xl px-3.5 py-1.5 text-xs font-medium transition-all ${
+                    className={`shrink-0 inline-flex items-center gap-2 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
                       isSelected
-                        ? "bg-peach/20 text-peach border border-peach/40 shadow-xs font-bold scale-[1.02]"
-                        : "text-fog hover:text-bone hover:bg-white/[0.04] border border-transparent"
+                        ? "bg-[#1A2C38] text-white border border-[#2F4553] font-bold"
+                        : "text-fog hover:text-white hover:bg-[#1A2C38]/50 border border-transparent"
                     }`}
                   >
                     {leagueLogo ? (
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/10 p-0.5 shadow-xs">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#0F212E] p-0.5 border border-[#213743]">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={leagueLogo}
                           alt={lg.name}
-                          className="h-4 w-4 object-contain filter drop-shadow-xs"
+                          className="h-4 w-4 object-contain"
                           loading="lazy"
                         />
                       </span>
                     ) : (
-                      <span className="font-mono text-[10px] font-black uppercase px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-bone/90">
+                      <span className="font-mono text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#1A2C38] border border-[#213743] text-white">
                         {countryTag}
                       </span>
                     )}
@@ -252,7 +250,6 @@ function ShellInner({ children }: { children: ReactNode }) {
                   </button>
                 );
               })}
-
             </div>
           </div>
         )}

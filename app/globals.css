@@ -9,19 +9,14 @@
   }
 
   body {
-    @apply bg-[#05070B] text-bone font-sans antialiased selection:bg-peach selection:text-ink;
+    @apply bg-[#0F212E] text-bone font-sans antialiased selection:bg-peach selection:text-white;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    background-image: 
-      radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 45%),
-      radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.07) 0px, transparent 45%),
-      radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.03) 0px, transparent 50%),
-      radial-gradient(at 80% 100%, rgba(56, 189, 248, 0.05) 0px, transparent 45%);
-    background-attachment: fixed;
+    background-color: #0F212E;
   }
 }
 
 :focus-visible {
-  outline: 2px solid #38BDF8;
+  outline: 2px solid #1475E1;
   outline-offset: 2px;
 }
 
@@ -30,37 +25,87 @@
   font-feature-settings: "tnum" 1, "zero" 1;
 }
 
-.pitch-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 20px 20px;
+/* Authentic Stake container styling */
+.stake-card {
+  background-color: #1A2C38;
+  border: 1px solid #213743;
+  border-radius: 6px;
 }
 
-/* Stadium Scoreboard Digit Glowing Display */
-.scoreboard-box {
-  background: linear-gradient(180deg, #0D1424 0%, #060913 100%);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.1),
-    0 8px 24px -4px rgba(0, 0, 0, 0.8),
-    0 0 16px -2px rgba(56, 189, 248, 0.15);
+.stake-card-hover {
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.scoreboard-box-live {
-  background: linear-gradient(180deg, #1C0B12 0%, #0A0508 100%);
-  border: 1px solid rgba(244, 63, 94, 0.35);
-  box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.15),
-    0 8px 24px -4px rgba(244, 63, 94, 0.3),
-    0 0 20px -2px rgba(244, 63, 94, 0.25);
+.stake-card-hover:hover {
+  background-color: #213743;
 }
 
-/* Glassmorphism utility card */
-.glass-panel {
-  background: linear-gradient(135deg, rgba(21, 28, 44, 0.7) 0%, rgba(14, 19, 31, 0.85) 100%);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Clean Odds Button */
+.stake-odds-btn {
+  background-color: #0F212E;
+  border: 1px solid #2F4553;
+  color: #FFFFFF;
+  border-radius: 4px;
+  transition: all 0.12s ease;
 }
+
+.stake-odds-btn:hover:not(:disabled) {
+  background-color: #2F4553;
+  border-color: #557086;
+}
+
+.stake-odds-btn.selected {
+  background-color: #1475E1;
+  border-color: #1475E1;
+  color: #FFFFFF;
+}
+
+/* Clean score pill */
+.stake-score {
+  background-color: #0F212E;
+  border: 1px solid #2F4553;
+  color: #FFFFFF;
+  border-radius: 4px;
+}
+
+.stake-score-live {
+  background-color: rgba(254, 34, 71, 0.15);
+  border: 1px solid rgba(254, 34, 71, 0.4);
+  color: #FE2247;
+}
+
+@keyframes livePulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.live-dot {
+  animation: livePulse 1.8s ease-in-out infinite;
+}
+
+/* Custom sleek dark scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0F212E;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2F4553;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #557086;
+}
+
 
 
 .glass-panel-subtle {

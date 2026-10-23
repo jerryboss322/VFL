@@ -243,98 +243,84 @@ export default function HomePage() {
   const currentLeagueLogo = selectedLeague ? (LEAGUE_LOGOS[selectedLeague.shortName] || LEAGUE_LOGOS[selectedLeague.name]) : null;
 
   return (
-    <div className="space-y-6">
-      {/* Stake.com-Style Elite Broadcast Banner */}
-      <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#121927] via-[#0E1420] to-[#080C14] p-6 shadow-2xl shadow-black/40">
-        {/* Ambient atmospheric glows */}
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-peach/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-win/10 blur-3xl" />
-
-        <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-center">
-          <div className="flex items-center gap-5">
+    <div className="space-y-4">
+      {/* Stake-Style Clean Sportsbook Header */}
+      <section className="stake-card p-5">
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
+          <div className="flex items-center gap-4">
             {currentLeagueLogo && (
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2 shadow-inner backdrop-blur-md">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[#0F212E] p-2 border border-[#213743]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={currentLeagueLogo}
                   alt={selectedLeague?.name ?? "League"}
-                  className="h-12 w-12 object-contain filter drop-shadow-md"
+                  className="h-10 w-10 object-contain"
                 />
               </div>
             )}
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-md border border-white/10 bg-white/5 px-2.5 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest text-bone">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-fog">
                   {selectedLeague?.country ?? "EUROPE"} • {selectedLeague?.shortName ?? "VFN"}
                 </span>
                 {isCurrentlyLive ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-live/40 bg-live/15 px-2.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wider text-live shadow-xs">
-                    <span className="live-dot h-2 w-2 rounded-full bg-live" />
-                    MATCHDAY {activeLiveMd} IN PLAY • {clockToMinute(activeLiveClock)}
+                  <span className="inline-flex items-center gap-1.5 rounded bg-live/15 px-2 py-0.5 font-mono text-[11px] font-bold text-live">
+                    <span className="live-dot h-1.5 w-1.5 rounded-full bg-live" />
+                    LIVE • {clockToMinute(activeLiveClock)}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-peach/40 bg-peach/15 px-2.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wider text-peach shadow-xs">
-                    <span className="live-dot h-2 w-2 rounded-full bg-peach" />
-                    PRE-MATCH WINDOW • MATCHDAY {nextMdNumber}
+                  <span className="inline-flex items-center gap-1.5 rounded bg-[#10355A] px-2 py-0.5 font-mono text-[11px] font-bold text-[#1475E1]">
+                    PRE-MATCH • MD {nextMdNumber}
                   </span>
                 )}
               </div>
 
-              <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
-                {selectedLeague?.name ?? "European Football"}{" "}
-                <span className="text-fog/70 font-semibold">—</span>{" "}
-                <span className="bg-gradient-to-r from-peach to-sky-300 bg-clip-text text-transparent">
-                  {isCurrentlyLive
-                    ? `Matchday ${activeLiveMd} Live`
-                    : `Matchday ${nextMdNumber} Markets`}
-                </span>
+              <h1 className="text-xl font-bold tracking-tight text-white">
+                {selectedLeague?.name ?? "European Football"}
               </h1>
-              <p className="text-xs text-fog/80 max-w-xl">
+              <p className="text-xs text-fog">
                 {isCurrentlyLive
-                  ? `Simulated fixtures in action. Live odds adjust dynamically. Next matchday kicks off automatically after settlement.`
-                  : `Next matchday fixtures kick off simultaneously once the 4-minute countdown reaches zero.`}
+                  ? `Matchday ${activeLiveMd} underway. Real-time dynamic ledger settlement.`
+                  : `All fixtures kick off automatically at 00:00.`}
               </p>
             </div>
           </div>
 
-          {/* Right: Digital Clock / Countdown Widget */}
-          <div className="flex shrink-0 items-center gap-4 rounded-xl border border-white/10 bg-black/40 px-5 py-3.5 backdrop-blur-md shadow-inner">
+          {/* Right: Clean Stake Clock Display */}
+          <div className="flex shrink-0 items-center gap-3 rounded bg-[#0F212E] px-4 py-3 border border-[#213743]">
             {isCurrentlyLive ? (
               <div className="text-right">
-                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-fog/70">
+                <span className="block font-mono text-[10px] uppercase font-bold tracking-wider text-fog">
                   MATCH CLOCK
                 </span>
-                <span className="tnum font-mono text-3xl font-black text-live">
+                <span className="tnum font-mono text-2xl font-bold text-live">
                   {clockToMinute(activeLiveClock)}
                 </span>
-                <span className="block font-mono text-[10px] text-fog/60">
-                  {formatCountdown(480 - activeLiveClock)} REMAINING
+                <span className="block font-mono text-[10px] text-fog">
+                  {formatCountdown(480 - activeLiveClock)} REM
                 </span>
               </div>
             ) : (
               <div className="text-right">
-                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-fog/70">
-                  KICKOFF IN
+                <span className="block font-mono text-[10px] uppercase font-bold tracking-wider text-fog">
+                  STARTS IN
                 </span>
-                <span className="tnum font-mono text-3xl font-black text-peach drop-shadow-xs">
+                <span className="tnum font-mono text-2xl font-bold text-white">
                   {formatCountdown(secondsUntilKickoff)}
                 </span>
-                <span className="block font-mono text-[10px] font-bold tracking-wide text-win">
-                  ● BETTING OPEN
+                <span className="block font-mono text-[10px] font-bold text-win">
+                  BETTING OPEN
                 </span>
               </div>
             )}
           </div>
         </div>
 
-
-        {/* Sleek Stake-style Glowing Progress Bar */}
-        <div className="mt-5 h-2 w-full overflow-hidden rounded-full bg-black/60 p-[1px] shadow-inner">
+        {/* Minimal Progress Bar */}
+        <div className="mt-4 h-1 w-full overflow-hidden rounded bg-[#0F212E]">
           <div
-            className={`h-full rounded-full transition-all duration-700 shadow-sm ${
-              isCurrentlyLive
-                ? "bg-gradient-to-r from-live to-red-400 shadow-live/50"
-                : "bg-gradient-to-r from-peach to-sky-400 shadow-peach/50"
+            className={`h-full transition-all duration-700 ${
+              isCurrentlyLive ? "bg-live" : "bg-peach"
             }`}
             style={{
               width: `${isCurrentlyLive ? liveProgressPct : countdownProgressPct}%`,
@@ -343,9 +329,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Matchday Ribbon & Market Switcher */}
+      {/* Matchday Ribbon */}
       <div
-        className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
+        className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1"
         role="tablist"
         aria-label="Matchdays"
       >
@@ -356,21 +342,21 @@ export default function HomePage() {
               key={md}
               type="button"
               onClick={() => setSelectedMatchday(md)}
-              className={`min-h-[38px] shrink-0 inline-flex items-center gap-2 rounded-xl px-4 py-1.5 font-mono text-xs font-bold transition-all duration-150 ${
+              className={`min-h-[36px] shrink-0 inline-flex items-center gap-2 rounded px-3.5 py-1.5 font-mono text-xs font-semibold transition-all ${
                 isSelected
-                  ? "bg-peach text-ink shadow-md shadow-peach/25 scale-[1.02]"
-                  : "border border-white/10 bg-coal/70 text-fog hover:text-bone hover:border-white/20 hover:bg-coal"
+                  ? "bg-[#2F4553] text-white font-bold"
+                  : "bg-[#1A2C38] text-fog hover:text-white hover:bg-[#213743]"
               }`}
             >
               <span>MD {md}</span>
               {status === "live" && (
-                <span className="live-dot h-2 w-2 rounded-full bg-live" title="Live" />
+                <span className="live-dot h-1.5 w-1.5 rounded-full bg-live" title="Live" />
               )}
               {status === "completed" && (
-                <span className={`text-[10px] ${isSelected ? "text-ink/70" : "text-fog/70"}`}>FT</span>
+                <span className="text-[10px] text-fog">FT</span>
               )}
               {status === "upcoming" && md === nextMdNumber && (
-                <span className={`text-[10px] font-black ${isSelected ? "text-ink" : "text-win"}`}>OPEN</span>
+                <span className="text-[10px] font-bold text-win">OPEN</span>
               )}
             </button>
           );
@@ -378,15 +364,16 @@ export default function HomePage() {
         <button
           type="button"
           onClick={() => setSelectedMatchday("all")}
-          className={`min-h-[38px] shrink-0 rounded-xl px-3.5 py-1.5 font-mono text-xs font-bold transition-all ${
+          className={`min-h-[36px] shrink-0 rounded px-3.5 py-1.5 font-mono text-xs font-semibold transition-all ${
             selectedMatchday === "all"
-              ? "bg-peach text-ink shadow-md shadow-peach/25"
-              : "border border-white/10 bg-coal/70 text-fog hover:text-bone hover:border-white/20"
+              ? "bg-[#2F4553] text-white font-bold"
+              : "bg-[#1A2C38] text-fog hover:text-white hover:bg-[#213743]"
           }`}
         >
-          All Matchdays
+          All
         </button>
       </div>
+
 
       {/* Market Selector & Status Filter Bar */}
       <div className="space-y-2.5 rounded-card border border-line bg-coal p-3.5">
@@ -491,28 +478,28 @@ export default function HomePage() {
             return (
               <div
                 key={fx.id}
-                className="group relative flex flex-col gap-4 p-4.5 rounded-xl border border-white/[0.04] bg-coal/50 backdrop-blur-md transition-all duration-200 hover:border-peach/30 hover:bg-coal/90 hover:shadow-xl hover:shadow-black/40 md:flex-row md:items-center md:justify-between"
+                className="flex flex-col gap-4 p-4 rounded-lg bg-[#1A2C38] border border-[#213743] hover:border-[#2F4553] transition-colors md:flex-row md:items-center md:justify-between"
               >
                 {/* Left Column: Match Clock & Scoreboard Badge */}
                 <div className="flex flex-1 items-center gap-4">
-                  <div className={`flex w-24 shrink-0 flex-col items-center justify-center rounded-2xl py-2.5 px-1.5 text-center font-mono shadow-md ${
+                  <div className={`flex w-20 shrink-0 flex-col items-center justify-center rounded py-2 px-1 text-center font-mono ${
                     isLive
-                      ? "scoreboard-box-live text-live animate-pulse"
+                      ? "stake-score-live"
                       : isUpcoming
-                        ? "scoreboard-box text-peach"
-                        : "border border-white/5 bg-ink/80 text-fog/70"
+                        ? "bg-[#0F212E] border border-[#213743] text-white"
+                        : "bg-[#0F212E] text-fog"
                   }`}>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-fog/60">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-fog">
                       MD {fx.matchday}
                     </span>
                     {isLive && (
-                      <span className="tnum mt-1 inline-flex items-center gap-1.5 text-sm font-black tracking-wider text-live">
-                        <span className="live-dot h-2 w-2 rounded-full bg-live" />
+                      <span className="tnum mt-0.5 inline-flex items-center gap-1.5 text-xs font-bold text-live">
+                        <span className="live-dot h-1.5 w-1.5 rounded-full bg-live" />
                         {clockToMinute(fx.clockSeconds)}
                       </span>
                     )}
                     {isUpcoming && (
-                      <span className="tnum mt-1 text-xs font-black tracking-tight text-peach">
+                      <span className="tnum mt-0.5 text-xs font-bold text-white">
                         {fxSecLeft > 0 && fxSecLeft <= 3600
                           ? formatCountdown(fxSecLeft)
                           : new Date(fx.kickoffAt).toLocaleTimeString([], {
@@ -522,20 +509,20 @@ export default function HomePage() {
                       </span>
                     )}
                     {isCompleted && (
-                      <span className="mt-1 text-xs font-black text-fog/60">FULL TIME</span>
+                      <span className="mt-0.5 text-xs font-semibold text-fog">FT</span>
                     )}
                   </div>
 
-                  <div className="min-w-0 flex-1 space-y-2.5">
+                  <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
                         <button
                           type="button"
                           onClick={() => toggleFavoriteClub(fx.home.id)}
-                          className={`text-sm transition-transform hover:scale-125 ${
+                          className={`text-xs transition-colors ${
                             favoriteClubs.includes(fx.home.id)
-                              ? "text-peach drop-shadow-xs"
-                              : "text-fog/30 hover:text-fog"
+                              ? "text-win"
+                              : "text-fog/40 hover:text-fog"
                           }`}
                           title="Pin club to favourites"
                         >
@@ -548,17 +535,17 @@ export default function HomePage() {
                         />
                         <Link
                           href={`/clubs/${fx.home.id}`}
-                          className="truncate text-sm font-bold text-bone transition-colors hover:text-peach"
+                          className="truncate text-sm font-semibold text-white hover:text-peach transition-colors"
                         >
                           {fx.home.name}
                         </Link>
                       </div>
                       {(isLive || isCompleted) && (
                         <div
-                          className={`tnum font-mono text-xl font-black px-3 py-1 rounded-xl shadow-inner min-w-[38px] text-center ${
+                          className={`tnum font-mono text-base font-bold px-2 py-0.5 rounded min-w-[28px] text-center ${
                             isLive
-                              ? "bg-live/25 text-live border border-live/40 shadow-live/20"
-                              : "bg-black/50 text-bone border border-white/10"
+                              ? "bg-live/20 text-live font-black"
+                              : "bg-[#0F212E] text-white border border-[#213743]"
                           }`}
                         >
                           {fx.homeGoals ?? 0}
@@ -567,14 +554,14 @@ export default function HomePage() {
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
                         <button
                           type="button"
                           onClick={() => toggleFavoriteClub(fx.away.id)}
-                          className={`text-sm transition-transform hover:scale-125 ${
+                          className={`text-xs transition-colors ${
                             favoriteClubs.includes(fx.away.id)
-                              ? "text-peach drop-shadow-xs"
-                              : "text-fog/30 hover:text-fog"
+                              ? "text-win"
+                              : "text-fog/40 hover:text-fog"
                           }`}
                           title="Pin club to favourites"
                         >
@@ -587,17 +574,17 @@ export default function HomePage() {
                         />
                         <Link
                           href={`/clubs/${fx.away.id}`}
-                          className="truncate text-sm font-bold text-bone transition-colors hover:text-peach"
+                          className="truncate text-sm font-semibold text-white hover:text-peach transition-colors"
                         >
                           {fx.away.name}
                         </Link>
                       </div>
                       {(isLive || isCompleted) && (
                         <div
-                          className={`tnum font-mono text-xl font-black px-3 py-1 rounded-xl shadow-inner min-w-[38px] text-center ${
+                          className={`tnum font-mono text-base font-bold px-2 py-0.5 rounded min-w-[28px] text-center ${
                             isLive
-                              ? "bg-live/25 text-live border border-live/40 shadow-live/20"
-                              : "bg-black/50 text-bone border border-white/10"
+                              ? "bg-live/20 text-live font-black"
+                              : "bg-[#0F212E] text-white border border-[#213743]"
                           }`}
                         >
                           {fx.awayGoals ?? 0}
@@ -605,11 +592,9 @@ export default function HomePage() {
                       )}
                     </div>
                   </div>
-
-
                 </div>
 
-                {/* Right Column: Odds Selection Buttons + Match Detail Link */}
+                {/* Right Column: Stake Odds Selection Buttons */}
                 <div className="flex flex-wrap items-center gap-2 md:justify-end">
                   {displayedMarket ? (
                     <div className="grid flex-1 grid-cols-3 gap-1.5 sm:flex-initial sm:flex">
@@ -654,28 +639,20 @@ export default function HomePage() {
                                 decimal: opt.decimal,
                               })
                             }
-                            className={`min-h-[44px] min-w-[88px] rounded-xl border px-3 py-2 transition-all duration-150 ${
+                            className={`min-h-[42px] min-w-[78px] rounded border px-3 py-1.5 transition-all text-xs font-mono flex items-center justify-between gap-2 ${
                               selected
-                                ? "border-peach bg-peach text-ink font-black shadow-md shadow-peach/25 scale-[1.02]"
+                                ? "bg-[#1475E1] border-[#1475E1] text-white font-bold"
                                 : disabled
-                                  ? "cursor-not-allowed border-white/5 bg-ink/40 text-fog/30"
-                                  : "border-white/10 bg-[#121926]/90 text-bone hover:border-peach/50 hover:bg-[#182234] hover:shadow-xs active:scale-[0.98]"
+                                  ? "bg-[#0F212E]/50 border-transparent text-fog/30 cursor-not-allowed"
+                                  : "bg-[#0F212E] border-[#2F4553] text-white hover:bg-[#2F4553] hover:border-[#557086]"
                             }`}
                           >
-                            <div className="flex items-center justify-between gap-2.5 font-mono text-xs">
-                              <span
-                                className={
-                                  selected
-                                    ? "text-ink/80 font-black"
-                                    : "text-fog/70 font-semibold text-[10px]"
-                                }
-                              >
-                                {tag}
-                              </span>
-                              <span className={`tnum font-bold ${selected ? "text-ink font-black" : "text-peach"}`}>
-                                {opt.decimal.toFixed(2)}
-                              </span>
-                            </div>
+                            <span className={selected ? "text-white/80 font-semibold text-[11px]" : "text-fog text-[11px]"}>
+                              {tag}
+                            </span>
+                            <span className={`tnum font-bold ${selected ? "text-white" : "text-white"}`}>
+                              {opt.decimal.toFixed(2)}
+                            </span>
                           </button>
                         );
                       })}
@@ -684,11 +661,10 @@ export default function HomePage() {
 
                   <Link
                     href={`/matches/${fx.id}`}
-                    className="min-h-[44px] inline-flex items-center justify-center rounded-xl border border-white/10 bg-coal/80 px-3.5 py-2 font-mono text-xs font-semibold text-fog hover:text-peach hover:border-peach/40 hover:bg-coal transition-all"
-
+                    className="min-h-[42px] inline-flex items-center justify-center rounded border border-[#2F4553] bg-[#0F212E] px-3 py-1.5 font-mono text-xs font-medium text-fog hover:text-white hover:bg-[#2F4553] transition-colors"
                     title="View match details & all 27 markets"
                   >
-                    +27 Markets →
+                    +27 →
                   </Link>
                 </div>
               </div>

@@ -127,25 +127,25 @@ export function BetslipDrawer() {
   return (
     <aside
       aria-label="Betting Tickets and Open Bets"
-      className="overflow-hidden rounded-2xl border border-white/[0.08] bg-coal/80 backdrop-blur-xl shadow-xl shadow-black/30"
+      className="stake-card overflow-hidden"
     >
       {/* Two-Column Tab Header: Bet Slip | Open Bets */}
-      <div className="grid grid-cols-2 border-b border-white/[0.08] bg-graphite/40 p-1 gap-1">
+      <div className="grid grid-cols-2 border-b border-[#213743] bg-[#0F212E] p-1 gap-1">
         <button
           type="button"
           onClick={() => setActiveTab("slip")}
-          className={`flex min-h-[40px] items-center justify-center gap-2 rounded-xl px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-150 ${
+          className={`flex min-h-[38px] items-center justify-center gap-2 rounded px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
             activeTab === "slip"
-              ? "bg-peach text-ink shadow-md shadow-peach/20"
-              : "text-fog hover:text-bone hover:bg-white/[0.04]"
+              ? "bg-[#1A2C38] text-white border border-[#2F4553]"
+              : "text-fog hover:text-white hover:bg-[#1A2C38]/40 border border-transparent"
           }`}
         >
           <span>Bet Slip</span>
           <span
-            className={`tnum rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+            className={`tnum rounded px-1.5 py-0.2 text-[10px] font-bold ${
               activeTab === "slip"
-                ? "bg-ink/90 text-peach"
-                : "bg-ink text-fog"
+                ? "bg-[#1475E1] text-white"
+                : "bg-[#213743] text-fog"
             }`}
           >
             {slip.length}
@@ -155,18 +155,18 @@ export function BetslipDrawer() {
         <button
           type="button"
           onClick={() => setActiveTab("open")}
-          className={`flex min-h-[40px] items-center justify-center gap-2 rounded-xl px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-150 ${
+          className={`flex min-h-[38px] items-center justify-center gap-2 rounded px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
             activeTab === "open"
-              ? "bg-peach text-ink shadow-md shadow-peach/20"
-              : "text-fog hover:text-bone hover:bg-white/[0.04]"
+              ? "bg-[#1A2C38] text-white border border-[#2F4553]"
+              : "text-fog hover:text-white hover:bg-[#1A2C38]/40 border border-transparent"
           }`}
         >
           <span>Open Bets</span>
           <span
-            className={`tnum rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+            className={`tnum rounded px-1.5 py-0.2 text-[10px] font-bold ${
               activeTab === "open"
-                ? "bg-ink/90 text-peach"
-                : "bg-ink text-fog"
+                ? "bg-[#1475E1] text-white"
+                : "bg-[#213743] text-fog"
             }`}
           >
             {openBets.length}
@@ -332,9 +332,9 @@ export function BetslipDrawer() {
               <button
                 type="submit"
                 disabled={placing}
-                className="group relative flex min-h-[46px] w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-peach via-peach to-sky-400 px-4 py-2.5 font-mono text-xs font-black uppercase tracking-wider text-ink shadow-lg shadow-peach/25 transition-all duration-200 hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
+                className="flex min-h-[44px] w-full items-center justify-center rounded bg-[#1475E1] px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#0E5BB8] disabled:opacity-50"
               >
-                <span className="relative">
+                <span>
                   {placing
                     ? "Locking Wager..."
                     : user

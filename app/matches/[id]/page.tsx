@@ -233,19 +233,19 @@ export default function MatchDetailPage() {
         </span>
       </div>
 
-      {/* Broadcast Scoreboard Card */}
+      {/* Clean Stake Broadcast Scoreboard Card */}
       <div
-        className="pitch-grid overflow-hidden rounded-card border border-line bg-coal p-6"
+        className="stake-card p-6"
         aria-live="polite"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4 font-mono text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#213743] pb-4 font-mono text-xs">
           <span
-            className={`tnum inline-flex items-center gap-2 rounded-control px-3 py-1 font-bold ${
+            className={`tnum inline-flex items-center gap-2 rounded px-2.5 py-1 font-bold ${
               isLive
-                ? "bg-live/20 text-live"
+                ? "stake-score-live"
                 : isUpcoming
-                  ? "border border-peach/40 bg-peach-dim text-peach"
-                  : "bg-graphite text-fog"
+                  ? "bg-[#10355A] text-[#1475E1] border border-[#1475E1]/40"
+                  : "bg-[#0F212E] text-fog border border-[#213743]"
             }`}
           >
             {isLive && <span className="live-dot h-2 w-2 rounded-full bg-live" />}
@@ -255,17 +255,17 @@ export default function MatchDetailPage() {
           </span>
 
           {isUpcoming && (
-            <span className="tnum rounded-control border border-line bg-ink px-3 py-1 text-peach">
-              AUTO-KICKOFF IN {formatCountdown(secondsToKickoff)}
+            <span className="tnum rounded border border-[#2F4553] bg-[#0F212E] px-3 py-1 font-bold text-white">
+              KICKOFF IN {formatCountdown(secondsToKickoff)}
             </span>
           )}
           {isLive && (
-            <span className="tnum text-fog">
+            <span className="tnum text-fog font-medium">
               ELAPSED: {fixture.clockSeconds ?? 0}s / 480s
             </span>
           )}
           {isCompleted && (
-            <span className="text-win">OFFICIAL RESULT • MARKETS SETTLED</span>
+            <span className="text-win font-semibold">OFFICIAL RESULT • MARKETS SETTLED</span>
           )}
         </div>
 
@@ -279,7 +279,7 @@ export default function MatchDetailPage() {
             />
             <Link
               href={`/clubs/${fixture.home.id}`}
-              className="mt-3 text-base font-bold text-bone transition-colors hover:text-peach sm:text-xl"
+              className="mt-3 text-base font-bold text-white transition-colors hover:text-[#1475E1] sm:text-lg"
             >
               {fixture.home.name}
             </Link>
@@ -292,11 +292,11 @@ export default function MatchDetailPage() {
           {/* Center Score / Countdown Stadium Board */}
           <div className="flex flex-col items-center justify-center">
             {isUpcoming ? (
-              <div className="scoreboard-box rounded-2xl px-6 py-4 shadow-xl">
-                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-fog/70">
+              <div className="stake-card px-6 py-4 border border-[#2F4553] bg-[#0F212E]">
+                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-fog">
                   KICKOFF IN
                 </span>
-                <span className="tnum font-mono text-3xl font-black text-peach sm:text-4xl drop-shadow-xs">
+                <span className="tnum font-mono text-3xl font-bold text-white sm:text-4xl">
                   {formatCountdown(secondsToKickoff)}
                 </span>
                 <span className="mt-1 block font-mono text-[10px] font-bold text-win">
@@ -305,16 +305,16 @@ export default function MatchDetailPage() {
               </div>
             ) : (
               <div className="relative">
-                <div className={`tnum flex items-center gap-4 rounded-2xl px-8 py-4 font-mono font-black tracking-wider shadow-2xl ${
-                  isLive ? "scoreboard-box-live text-live sm:text-6xl text-4xl" : "scoreboard-box text-white sm:text-6xl text-4xl"
+                <div className={`tnum flex items-center gap-4 rounded border border-[#2F4553] bg-[#0F212E] px-6 py-3 font-mono font-bold tracking-wider ${
+                  isLive ? "text-live text-4xl sm:text-5xl border-live/40 bg-live/10" : "text-white text-4xl sm:text-5xl"
                 }`}>
-                  <span className="drop-shadow-md">{displayedScore.home}</span>
-                  <span className="text-white/30 font-light">:</span>
-                  <span className="drop-shadow-md">{displayedScore.away}</span>
+                  <span>{displayedScore.home}</span>
+                  <span className="text-fog/40 font-light">:</span>
+                  <span>{displayedScore.away}</span>
                 </div>
                 {isLive && (
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-live/50 bg-live px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-live/50 animate-pulse">
-                    LIVE IN-PLAY
+                  <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-live px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
+                    LIVE
                   </div>
                 )}
               </div>

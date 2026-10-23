@@ -5,31 +5,30 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#070A0F",
-        coal: "#0E131F",
-        graphite: "#151C2C",
-        line: "#1F293D",
-        fog: "#94A3B8",
-        bone: "#F1F5F9",
-        peach: "#38BDF8", // Vibrant Sky Cyan (Stake / Modern Sportsbook primary)
-        "peach-dim": "#0C2338",
-        live: "#F43F5E",  // Radiant Rose/Crimson for in-play excitement
-        win: "#10B981",   // Emerald Neon
-        loss: "#EF4444",  // Coral Red
-        gold: "#F59E0B",  // Stadium Gold for special odds
-        violet: "#8B5CF6",// Cyber Purple for accumulator highlights
+        ink: "#0F212E",        // Authentic Stake Main Background
+        coal: "#1A2C38",       // Authentic Stake Card / Surface
+        graphite: "#213743",   // Surface border / secondary
+        line: "#2F4553",       // Interactive element border
+        fog: "#B1BAD3",        // Clean Slate Text
+        bone: "#FFFFFF",       // Crisp Pure White
+        peach: "#1475E1",      // Stake Sportsbook Brand Blue
+        "peach-dim": "#10355A",
+        win: "#00E701",        // Iconic Stake Neon Green
+        live: "#FE2247",       // Clean Live Crimson Red
+        loss: "#ED4245",
       },
       borderRadius: {
-        control: "8px",
-        card: "14px",
+        control: "6px",
+        card: "8px",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "sans-serif"],
-        mono: ["var(--font-mono)", "JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
+        sans: ["var(--font-inter)", "Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        mono: ["var(--font-mono)", "JetBrains Mono", "monospace"],
       },
     },
   },
   plugins: [],
 };
 export default config;
+
 
