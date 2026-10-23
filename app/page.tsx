@@ -466,20 +466,26 @@ export default function HomePage() {
             return (
               <div
                 key={fx.id}
-                className="flex flex-col gap-4 p-4 transition-colors hover:bg-graphite/30 md:flex-row md:items-center md:justify-between"
+                className="group relative flex flex-col gap-4 p-4.5 transition-all duration-200 hover:bg-white/[0.03] md:flex-row md:items-center md:justify-between"
               >
                 {/* Left Column: Status & Clubs */}
                 <div className="flex flex-1 items-center gap-4">
-                  <div className="flex w-20 shrink-0 flex-col items-center justify-center rounded-control border border-line bg-ink py-2 text-center font-mono">
-                    <span className="text-[10px] uppercase text-fog">MD {fx.matchday}</span>
+                  <div className={`flex w-22 shrink-0 flex-col items-center justify-center rounded-xl border py-2 px-1 text-center font-mono shadow-xs ${
+                    isLive
+                      ? "border-live/40 bg-live/10 text-live"
+                      : isUpcoming
+                        ? "border-peach/30 bg-peach/5 text-peach"
+                        : "border-white/5 bg-ink/70 text-fog/80"
+                  }`}>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-fog/70">MD {fx.matchday}</span>
                     {isLive && (
-                      <span className="tnum mt-0.5 inline-flex items-center gap-1 text-xs font-bold text-live">
-                        <span className="live-dot h-1.5 w-1.5 rounded-full bg-live" />
+                      <span className="tnum mt-0.5 inline-flex items-center gap-1.5 text-xs font-black tracking-wide text-live">
+                        <span className="live-dot h-2 w-2 rounded-full bg-live" />
                         {clockToMinute(fx.clockSeconds)}
                       </span>
                     )}
                     {isUpcoming && (
-                      <span className="tnum mt-0.5 text-xs font-semibold text-peach">
+                      <span className="tnum mt-0.5 text-xs font-bold text-peach">
                         {fxSecLeft > 0 && fxSecLeft <= 3600
                           ? formatCountdown(fxSecLeft)
                           : new Date(fx.kickoffAt).toLocaleTimeString([], {
@@ -489,20 +495,20 @@ export default function HomePage() {
                       </span>
                     )}
                     {isCompleted && (
-                      <span className="mt-0.5 text-xs font-semibold text-fog">FT</span>
+                      <span className="mt-0.5 text-xs font-bold text-fog/70">FT</span>
                     )}
                   </div>
 
-                  <div className="min-w-0 flex-1 space-y-2">
+                  <div className="min-w-0 flex-1 space-y-2.5">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-3">
                         <button
                           type="button"
                           onClick={() => toggleFavoriteClub(fx.home.id)}
-                          className={`text-xs transition-colors ${
+                          className={`text-sm transition-transform hover:scale-125 ${
                             favoriteClubs.includes(fx.home.id)
-                              ? "text-peach"
-                              : "text-fog/40 hover:text-fog"
+                              ? "text-peach drop-shadow-xs"
+                              : "text-fog/30 hover:text-fog"
                           }`}
                           title="Pin club to favourites"
                         >
@@ -511,19 +517,19 @@ export default function HomePage() {
                         <ClubBadge
                           shortName={fx.home.shortName}
                           name={fx.home.name}
-                          size="sm"
+                          size="md"
                         />
                         <Link
                           href={`/clubs/${fx.home.id}`}
-                          className="truncate text-sm font-semibold text-bone transition-colors hover:text-peach"
+                          className="truncate text-sm font-bold text-bone transition-colors hover:text-peach"
                         >
                           {fx.home.name}
                         </Link>
                       </div>
                       {(isLive || isCompleted) && (
                         <span
-                          className={`tnum font-mono text-base font-bold ${
-                            isLive ? "text-live" : "text-bone"
+                          className={`tnum font-mono text-lg font-black tracking-tight px-2 py-0.5 rounded-lg ${
+                            isLive ? "bg-live/20 text-live border border-live/30" : "text-bone"
                           }`}
                         >
                           {fx.homeGoals ?? 0}
@@ -532,14 +538,14 @@ export default function HomePage() {
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-3">
                         <button
                           type="button"
                           onClick={() => toggleFavoriteClub(fx.away.id)}
-                          className={`text-xs transition-colors ${
+                          className={`text-sm transition-transform hover:scale-125 ${
                             favoriteClubs.includes(fx.away.id)
-                              ? "text-peach"
-                              : "text-fog/40 hover:text-fog"
+                              ? "text-peach drop-shadow-xs"
+                              : "text-fog/30 hover:text-fog"
                           }`}
                           title="Pin club to favourites"
                         >
@@ -548,19 +554,19 @@ export default function HomePage() {
                         <ClubBadge
                           shortName={fx.away.shortName}
                           name={fx.away.name}
-                          size="sm"
+                          size="md"
                         />
                         <Link
                           href={`/clubs/${fx.away.id}`}
-                          className="truncate text-sm font-semibold text-bone transition-colors hover:text-peach"
+                          className="truncate text-sm font-bold text-bone transition-colors hover:text-peach"
                         >
                           {fx.away.name}
                         </Link>
                       </div>
                       {(isLive || isCompleted) && (
                         <span
-                          className={`tnum font-mono text-base font-bold ${
-                            isLive ? "text-live" : "text-bone"
+                          className={`tnum font-mono text-lg font-black tracking-tight px-2 py-0.5 rounded-lg ${
+                            isLive ? "bg-live/20 text-live border border-live/30" : "text-bone"
                           }`}
                         >
                           {fx.awayGoals ?? 0}
@@ -568,6 +574,7 @@ export default function HomePage() {
                       )}
                     </div>
                   </div>
+
                 </div>
 
                 {/* Right Column: Odds Selection Buttons + Match Detail Link */}
@@ -615,25 +622,25 @@ export default function HomePage() {
                                 decimal: opt.decimal,
                               })
                             }
-                            className={`min-h-[44px] min-w-[82px] rounded-control border px-3 py-1.5 transition-colors ${
+                            className={`min-h-[44px] min-w-[88px] rounded-xl border px-3 py-2 transition-all duration-150 ${
                               selected
-                                ? "border-peach bg-peach-dim text-peach"
+                                ? "border-peach bg-peach text-ink font-black shadow-md shadow-peach/25 scale-[1.02]"
                                 : disabled
-                                  ? "cursor-not-allowed border-line bg-ink/40 text-fog/40"
-                                  : "border-line bg-graphite text-bone hover:border-peach/60"
+                                  ? "cursor-not-allowed border-white/5 bg-ink/40 text-fog/30"
+                                  : "border-white/10 bg-[#121926]/90 text-bone hover:border-peach/50 hover:bg-[#182234] hover:shadow-xs active:scale-[0.98]"
                             }`}
                           >
-                            <div className="flex items-center justify-between gap-2 font-mono text-xs">
+                            <div className="flex items-center justify-between gap-2.5 font-mono text-xs">
                               <span
                                 className={
                                   selected
-                                    ? "font-bold text-peach"
-                                    : "text-[11px] text-fog"
+                                    ? "text-ink/80 font-black"
+                                    : "text-fog/70 font-semibold text-[10px]"
                                 }
                               >
                                 {tag}
                               </span>
-                              <span className="tnum font-bold">
+                              <span className={`tnum font-bold ${selected ? "text-ink font-black" : "text-peach"}`}>
                                 {opt.decimal.toFixed(2)}
                               </span>
                             </div>
@@ -645,7 +652,8 @@ export default function HomePage() {
 
                   <Link
                     href={`/matches/${fx.id}`}
-                    className="min-h-[44px] inline-flex items-center justify-center rounded-control border border-line bg-ink px-3 py-2 font-mono text-xs font-medium text-fog transition-colors hover:border-peach/50 hover:text-peach"
+                    className="min-h-[44px] inline-flex items-center justify-center rounded-xl border border-white/10 bg-coal/80 px-3.5 py-2 font-mono text-xs font-semibold text-fog hover:text-peach hover:border-peach/40 hover:bg-coal transition-all"
+
                     title="View match details & all 27 markets"
                   >
                     +27 Markets →

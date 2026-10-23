@@ -9,8 +9,13 @@
   }
 
   body {
-    @apply bg-ink text-bone font-sans antialiased selection:bg-peach selection:text-ink;
+    @apply bg-[#080B11] text-bone font-sans antialiased selection:bg-peach selection:text-ink;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(108, 166, 232, 0.06) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(72, 181, 136, 0.04) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(108, 166, 232, 0.03) 0px, transparent 50%);
+    background-attachment: fixed;
   }
 }
 
@@ -25,23 +30,69 @@
 }
 
 .pitch-grid {
-  background-image: radial-gradient(#242F44 1px, transparent 1px);
-  background-size: 16px 16px;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Glassmorphism utility card */
+.glass-panel {
+  background: linear-gradient(135deg, rgba(24, 32, 48, 0.6) 0%, rgba(17, 23, 35, 0.8) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-panel-subtle {
+  background: rgba(17, 23, 35, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-card-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(108, 166, 232, 0.3);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px -5px rgba(108, 166, 232, 0.15);
 }
 
 @keyframes livePulse {
   0%, 100% {
     opacity: 1;
     transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(217, 107, 98, 0.7);
   }
   50% {
-    opacity: 0.35;
-    transform: scale(0.88);
+    opacity: 0.7;
+    transform: scale(0.92);
+    box-shadow: 0 0 0 6px rgba(217, 107, 98, 0);
   }
 }
 
 .live-dot {
-  animation: livePulse 1.6s ease-in-out infinite;
+  animation: livePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -50,3 +101,4 @@
     transition: none !important;
   }
 }
+

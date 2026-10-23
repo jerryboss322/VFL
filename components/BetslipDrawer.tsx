@@ -127,24 +127,24 @@ export function BetslipDrawer() {
   return (
     <aside
       aria-label="Betting Tickets and Open Bets"
-      className="overflow-hidden rounded-card border border-line bg-coal"
+      className="overflow-hidden rounded-2xl border border-white/[0.08] bg-coal/80 backdrop-blur-xl shadow-xl shadow-black/30"
     >
       {/* Two-Column Tab Header: Bet Slip | Open Bets */}
-      <div className="grid grid-cols-2 border-b border-line bg-graphite/60">
+      <div className="grid grid-cols-2 border-b border-white/[0.08] bg-graphite/40 p-1 gap-1">
         <button
           type="button"
           onClick={() => setActiveTab("slip")}
-          className={`flex min-h-[44px] items-center justify-center gap-2 border-b-2 px-3 py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
+          className={`flex min-h-[40px] items-center justify-center gap-2 rounded-xl px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-150 ${
             activeTab === "slip"
-              ? "border-b-peach bg-coal text-peach"
-              : "border-b-transparent text-fog hover:text-bone"
+              ? "bg-peach text-ink shadow-md shadow-peach/20"
+              : "text-fog hover:text-bone hover:bg-white/[0.04]"
           }`}
         >
           <span>Bet Slip</span>
           <span
-            className={`tnum rounded-control px-1.5 py-0.5 text-[10px] ${
+            className={`tnum rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
               activeTab === "slip"
-                ? "border border-peach/40 bg-peach-dim text-peach"
+                ? "bg-ink/90 text-peach"
                 : "bg-ink text-fog"
             }`}
           >
@@ -155,17 +155,17 @@ export function BetslipDrawer() {
         <button
           type="button"
           onClick={() => setActiveTab("open")}
-          className={`flex min-h-[44px] items-center justify-center gap-2 border-b-2 px-3 py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
+          className={`flex min-h-[40px] items-center justify-center gap-2 rounded-xl px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-150 ${
             activeTab === "open"
-              ? "border-b-peach bg-coal text-peach"
-              : "border-b-transparent text-fog hover:text-bone"
+              ? "bg-peach text-ink shadow-md shadow-peach/20"
+              : "text-fog hover:text-bone hover:bg-white/[0.04]"
           }`}
         >
           <span>Open Bets</span>
           <span
-            className={`tnum rounded-control px-1.5 py-0.5 text-[10px] ${
+            className={`tnum rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
               activeTab === "open"
-                ? "border border-peach/40 bg-peach-dim text-peach"
+                ? "bg-ink/90 text-peach"
                 : "bg-ink text-fog"
             }`}
           >
@@ -173,6 +173,7 @@ export function BetslipDrawer() {
           </span>
         </button>
       </div>
+
 
       {/* TAB 1: BET SLIP */}
       {activeTab === "slip" && (
@@ -331,14 +332,17 @@ export function BetslipDrawer() {
               <button
                 type="submit"
                 disabled={placing}
-                className="min-h-[44px] w-full rounded-control bg-peach px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-ink transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="group relative flex min-h-[46px] w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-peach via-peach to-sky-400 px-4 py-2.5 font-mono text-xs font-black uppercase tracking-wider text-ink shadow-lg shadow-peach/25 transition-all duration-200 hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
               >
-                {placing
-                  ? "Locking Wager..."
-                  : user
-                    ? `Place Bet • ${formatMinor(stakeMinor)}`
-                    : "Sign In to Place Bet"}
+                <span className="relative">
+                  {placing
+                    ? "Locking Wager..."
+                    : user
+                      ? `Place Bet • ${formatMinor(stakeMinor)}`
+                      : "Sign In to Place Bet"}
+                </span>
               </button>
+
             </form>
           )}
         </>
