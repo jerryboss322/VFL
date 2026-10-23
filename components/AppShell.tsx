@@ -43,45 +43,40 @@ function ShellInner({ children }: { children: ReactNode }) {
   } = useApp();
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0F212E] text-bone">
-      {/* Top Broadcast Telemetry Strip */}
-      <div className="border-b border-[#213743] bg-[#0A161E] px-4 py-2 text-[11px]">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 text-fog">
+    <div className="flex min-h-screen flex-col bg-[#121212] text-bone">
+      {/* Top Telemetry Strip */}
+      <div className="border-b border-[#005A42] bg-[#014D38] px-4 py-1.5 text-[11px] text-white/90">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-2 font-mono text-[11px] font-semibold tracking-wider text-bone/90">
-              <span className="live-dot h-2 w-2 rounded-full bg-win" />
+            <span className="inline-flex items-center gap-2 font-mono text-[11px] font-bold tracking-wider text-white">
+              <span className="live-dot h-2 w-2 rounded-full bg-[#00E701]" />
               EUROPEAN VIRTUAL FOOTBALL NETWORK
             </span>
-            <span className="hidden sm:inline-block h-3 w-px bg-[#213743]" />
-            <span className="hidden sm:inline-block font-mono text-[11px] text-fog">
+            <span className="hidden sm:inline-block h-3 w-px bg-white/20" />
+            <span className="hidden sm:inline-block font-mono text-[11px] text-white/80">
               6 Leagues • 116 Clubs
             </span>
           </div>
           <div className="flex items-center gap-3 font-mono text-[11px]">
-            <span className="text-fog">4m Pre-Match • 8m Live</span>
-            <span className="rounded bg-[#1A2C38] border border-[#2F4553] px-2.5 py-0.5 text-[10px] font-bold tracking-widest text-fog uppercase">
+            <span className="text-white/80">4m Pre-Match • 8m Live</span>
+            <span className="rounded bg-[#005A42] border border-white/20 px-2 py-0.5 text-[10px] font-bold tracking-wider text-[#F9DC1C] uppercase">
               Simulated Ledger (XTS)
             </span>
           </div>
         </div>
       </div>
 
-      {/* Main Navigation Header */}
-      <header className="sticky top-0 z-30 border-b border-[#213743] bg-[#1A2C38]">
-        <div className="mx-auto flex min-h-[68px] max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-2">
+      {/* Main Bet365 Signature Green Navigation Header */}
+      <header className="sticky top-0 z-30 b365-header shadow-md">
+        <div className="mx-auto flex min-h-[58px] max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-2">
           <div className="flex items-center gap-6 lg:gap-8">
             <Link href="/" className="group flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded bg-[#1475E1]">
-                <span className="font-mono text-xs font-black tracking-tighter text-white">
-                  VFN
+              <div className="flex items-center">
+                <span className="text-xl font-black italic tracking-tighter text-white">
+                  bet<span className="text-[#F9DC1C]">365</span>
                 </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold tracking-tight text-white">
-                  VIRTUAL FOOTBALL
-                </span>
-                <span className="font-mono text-[9px] uppercase tracking-wider text-fog">
-                  European Exchange
+                <span className="ml-2 rounded bg-[#014D38] px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#F9DC1C] border border-[#F9DC1C]/30">
+                  VFL
                 </span>
               </div>
             </Link>
@@ -95,15 +90,15 @@ function ShellInner({ children }: { children: ReactNode }) {
                     <Link
                       key={n.href}
                       href={n.href}
-                      className={`min-h-[34px] inline-flex items-center gap-2 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                      className={`min-h-[34px] inline-flex items-center gap-2 rounded px-3 py-1 text-xs font-semibold tracking-wide transition-colors ${
                         active
-                          ? "bg-[#213743] text-white font-bold"
-                          : "text-fog hover:text-white hover:bg-[#213743]/50"
+                          ? "bg-[#014D38] text-white border-b-2 border-[#F9DC1C] font-bold"
+                          : "text-white/80 hover:text-white hover:bg-[#005A42]/60"
                       }`}
                     >
                       <span>{n.label}</span>
                       {n.href === "/bets" && openBets.length > 0 && (
-                        <span className="tnum rounded bg-[#1475E1] text-white px-1.5 py-0.2 font-mono text-[10px] font-bold">
+                        <span className="tnum rounded bg-[#F9DC1C] text-[#121212] px-1.5 py-0.2 font-mono text-[10px] font-black">
                           {openBets.length}
                         </span>
                       )}
@@ -114,13 +109,13 @@ function ShellInner({ children }: { children: ReactNode }) {
               {user?.isAdmin && (
                 <Link
                   href="/admin"
-                  className={`min-h-[34px] inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs font-bold transition-colors ${
+                  className={`min-h-[34px] inline-flex items-center gap-1.5 rounded border px-3 py-1 text-xs font-bold transition-colors ${
                     pathname?.startsWith("/admin")
-                      ? "border-[#1475E1] bg-[#10355A] text-[#1475E1]"
-                      : "border-[#2F4553] text-[#1475E1] hover:bg-[#213743]"
+                      ? "border-[#F9DC1C] bg-[#014D38] text-[#F9DC1C]"
+                      : "border-white/20 text-white hover:bg-[#005A42]"
                   }`}
                 >
-                  <span className="live-dot h-1.5 w-1.5 rounded-full bg-[#1475E1]" />
+                  <span className="live-dot h-1.5 w-1.5 rounded-full bg-[#F9DC1C]" />
                   <span>Admin Operations</span>
                 </Link>
               )}
@@ -133,26 +128,26 @@ function ShellInner({ children }: { children: ReactNode }) {
                 {user.isAdmin ? (
                   <Link
                     href="/admin"
-                    className="flex items-center gap-2 rounded-xl border border-peach/40 bg-peach/10 px-3.5 py-2 font-mono text-xs font-bold text-peach transition-all hover:bg-peach/20"
+                    className="flex items-center gap-2 rounded border border-[#F9DC1C]/50 bg-[#014D38] px-3 py-1.5 font-mono text-xs font-bold text-[#F9DC1C] transition-colors hover:bg-[#005A42]"
                   >
-                    <span className="live-dot h-2 w-2 rounded-full bg-peach" />
-                    <span>MONITORING ONLY (NO BETTING)</span>
+                    <span className="live-dot h-2 w-2 rounded-full bg-[#F9DC1C]" />
+                    <span>MONITORING ONLY</span>
                   </Link>
                 ) : (
                   <Link
                     href="/wallet"
-                    className="flex items-center gap-3.5 rounded-xl border border-white/10 bg-coal/70 px-4 py-2 text-xs transition-all hover:border-peach/40 hover:bg-coal shadow-sm"
+                    className="flex items-center gap-3 rounded border border-white/20 bg-[#014D38] px-3.5 py-1.5 text-xs transition-colors hover:bg-[#005A42]"
                   >
                     <div className="flex flex-col">
-                      <span className="text-[10px] uppercase font-mono tracking-wider text-fog/70">Available</span>
-                      <span className="tnum font-mono text-xs font-bold text-bone">
+                      <span className="text-[10px] uppercase font-mono tracking-wider text-white/70">Balance</span>
+                      <span className="tnum font-mono text-xs font-bold text-[#F9DC1C]">
                         {formatMinor(wallet.availableMinor, wallet.currency)}
                       </span>
                     </div>
                     {wallet.reservedMinor > 0 && (
-                      <div className="flex flex-col border-l border-white/10 pl-3.5">
-                        <span className="text-[10px] uppercase font-mono tracking-wider text-fog/70">In Play</span>
-                        <span className="tnum font-mono text-xs font-bold text-peach">
+                      <div className="flex flex-col border-l border-white/20 pl-3">
+                        <span className="text-[10px] uppercase font-mono tracking-wider text-white/70">In Play</span>
+                        <span className="tnum font-mono text-xs font-bold text-white">
                           {formatMinor(wallet.reservedMinor, wallet.currency)}
                         </span>
                       </div>
@@ -162,30 +157,30 @@ function ShellInner({ children }: { children: ReactNode }) {
                 <div className="hidden flex-col text-right sm:flex">
                   <Link
                     href="/profile"
-                    className="text-xs font-medium text-white hover:text-[#1475E1] transition-colors"
+                    className="text-xs font-semibold text-white hover:text-[#F9DC1C] transition-colors"
                   >
                     {user.displayName}
                   </Link>
                   {user.isAdmin ? (
                     <Link
                       href="/admin"
-                      className="font-mono text-[10px] font-bold text-[#1475E1] hover:underline"
+                      className="font-mono text-[10px] font-bold text-[#F9DC1C] hover:underline"
                     >
                       ADMIN CONSOLE →
                     </Link>
                   ) : (
                     <Link
                       href="/profile"
-                      className="font-mono text-[10px] text-fog hover:text-white"
+                      className="font-mono text-[10px] text-white/70 hover:text-white"
                     >
-                      TRADER PROFILE →
+                      MY ACCOUNT →
                     </Link>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={() => void logout()}
-                  className="rounded border border-[#2F4553] bg-[#0F212E] px-3.5 py-1.5 text-xs font-medium text-fog hover:text-white hover:bg-[#213743] transition-colors"
+                  className="rounded border border-white/20 bg-[#014D38] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#005A42] transition-colors"
                 >
                   Sign Out
                 </button>
@@ -194,9 +189,9 @@ function ShellInner({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => setAuthModalOpen(true)}
-                className="flex items-center gap-2 rounded bg-[#1475E1] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0E5BB8]"
+                className="flex items-center gap-2 rounded bg-[#F9DC1C] px-4 py-2 text-xs font-bold text-[#121212] transition-colors hover:bg-[#FFDF00] shadow-sm"
               >
-                <span>Sign In • Claim 10,000 XTS</span>
+                <span>Join / Log In • 10,000 XTS</span>
                 <span>→</span>
               </button>
             )}
@@ -205,14 +200,14 @@ function ShellInner({ children }: { children: ReactNode }) {
 
         {/* Dedicated 6-League Selector Bar */}
         {leagues.length > 0 && (
-          <div className="border-t border-[#213743] bg-[#0F212E] px-4 py-1.5">
+          <div className="b365-subnav px-4 py-1.5">
             <div
               className="mx-auto flex max-w-7xl items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5"
               role="tablist"
               aria-label="European Leagues"
             >
-              <span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-wider text-fog mr-1 hidden sm:inline">
-                COMPETITION:
+              <span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-wider text-[#F9DC1C] mr-2 hidden sm:inline">
+                SOCCER:
               </span>
               {leagues.map((lg) => {
                 const isSelected = lg.id === selectedLeagueId;
@@ -225,14 +220,14 @@ function ShellInner({ children }: { children: ReactNode }) {
                     role="tab"
                     aria-selected={isSelected}
                     onClick={() => setSelectedLeagueId(lg.id)}
-                    className={`shrink-0 inline-flex items-center gap-2 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                    className={`shrink-0 inline-flex items-center gap-2 rounded px-3 py-1 text-xs font-medium transition-colors ${
                       isSelected
-                        ? "bg-[#1A2C38] text-white border border-[#2F4553] font-bold"
-                        : "text-fog hover:text-white hover:bg-[#1A2C38]/50 border border-transparent"
+                        ? "bg-[#027B5B] text-white border-b-2 border-[#F9DC1C] font-bold"
+                        : "text-white/80 hover:text-white hover:bg-white/10 border-b-2 border-transparent"
                     }`}
                   >
                     {leagueLogo ? (
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#0F212E] p-0.5 border border-[#213743]">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white/10 p-0.5">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={leagueLogo}
@@ -242,7 +237,7 @@ function ShellInner({ children }: { children: ReactNode }) {
                         />
                       </span>
                     ) : (
-                      <span className="font-mono text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#1A2C38] border border-[#213743] text-white">
+                      <span className="font-mono text-[10px] font-bold uppercase px-1 py-0.5 rounded bg-black/30 text-white">
                         {countryTag}
                       </span>
                     )}

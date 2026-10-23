@@ -5,16 +5,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#0F212E",        // Authentic Stake Main Background
-        coal: "#1A2C38",       // Authentic Stake Card / Surface
-        graphite: "#213743",   // Surface border / secondary
-        line: "#2F4553",       // Interactive element border
-        fog: "#B1BAD3",        // Clean Slate Text
-        bone: "#FFFFFF",       // Crisp Pure White
-        peach: "#1475E1",      // Stake Sportsbook Brand Blue
-        "peach-dim": "#10355A",
-        win: "#00E701",        // Iconic Stake Neon Green
-        live: "#FE2247",       // Clean Live Crimson Red
+        ink: "#121212",        // Bet365 Deep Charcoal Ground
+        coal: "#1F2327",       // Bet365 Card / Section Surface
+        graphite: "#292E33",   // Surface border / divider
+        line: "#383E44",       // Interactive element border
+        fog: "#A3ACB5",        // Muted Slate Text
+        bone: "#FFFFFF",       // Crisp High-Contrast Pure White
+        brand: "#027B5B",      // Iconic Bet365 Deep Forest Green
+        "brand-dark": "#0B3E2F",// In-play section header green
+        accent: "#F9DC1C",     // Bet365 Signature Sundance Yellow
+        "accent-gold": "#FFDF00", // High-visibility odds yellow
+        live: "#FE2247",       // Live In-Play Indicator
+        win: "#00E701",        // Winning ledger green
         loss: "#ED4245",
       },
       borderRadius: {

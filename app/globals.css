@@ -9,14 +9,14 @@
   }
 
   body {
-    @apply bg-[#0F212E] text-bone font-sans antialiased selection:bg-peach selection:text-white;
+    @apply bg-[#121212] text-bone font-sans antialiased selection:bg-brand selection:text-white;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    background-color: #0F212E;
+    background-color: #121212;
   }
 }
 
 :focus-visible {
-  outline: 2px solid #1475E1;
+  outline: 2px solid #F9DC1C;
   outline-offset: 2px;
 }
 
@@ -25,50 +25,72 @@
   font-feature-settings: "tnum" 1, "zero" 1;
 }
 
-/* Authentic Stake container styling */
-.stake-card {
-  background-color: #1A2C38;
-  border: 1px solid #213743;
-  border-radius: 6px;
+/* Bet365 Container & Header styling */
+.b365-header {
+  background-color: #027B5B;
+  border-bottom: 2px solid #005A42;
 }
 
-.stake-card-hover {
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+.b365-subnav {
+  background-color: #0B3E2F;
+  border-bottom: 1px solid #144E3C;
 }
 
-.stake-card-hover:hover {
-  background-color: #213743;
-}
-
-/* Clean Odds Button */
-.stake-odds-btn {
-  background-color: #0F212E;
-  border: 1px solid #2F4553;
-  color: #FFFFFF;
-  border-radius: 4px;
-  transition: all 0.12s ease;
-}
-
-.stake-odds-btn:hover:not(:disabled) {
-  background-color: #2F4553;
-  border-color: #557086;
-}
-
-.stake-odds-btn.selected {
-  background-color: #1475E1;
-  border-color: #1475E1;
-  color: #FFFFFF;
-}
-
-/* Clean score pill */
-.stake-score {
-  background-color: #0F212E;
-  border: 1px solid #2F4553;
-  color: #FFFFFF;
+.b365-card {
+  background-color: #1F2327;
+  border: 1px solid #2B3036;
   border-radius: 4px;
 }
 
-.stake-score-live {
+.b365-row {
+  background-color: #1F2327;
+  border-bottom: 1px solid #2B3036;
+  transition: background-color 0.12s ease;
+}
+
+.b365-row:hover {
+  background-color: #262B30;
+}
+
+/* Bet365 High-Density Odds Button */
+.b365-odds-btn {
+  background-color: #2B3036;
+  border: 1px solid #383E45;
+  color: #FFFFFF;
+  border-radius: 3px;
+  transition: all 0.1s ease;
+}
+
+.b365-odds-btn:hover:not(:disabled) {
+  background-color: #383E45;
+  border-color: #4D555E;
+}
+
+.b365-odds-btn.selected {
+  background-color: #F9DC1C;
+  border-color: #F9DC1C;
+  color: #121212;
+}
+
+.b365-odds-value {
+  color: #FFDF00;
+  font-weight: 700;
+}
+
+.b365-odds-btn.selected .b365-odds-value {
+  color: #121212;
+  font-weight: 800;
+}
+
+/* Score cell */
+.b365-score {
+  background-color: #16181B;
+  border: 1px solid #2B3036;
+  color: #FFDF00;
+  border-radius: 3px;
+}
+
+.b365-score-live {
   background-color: rgba(254, 34, 71, 0.15);
   border: 1px solid rgba(254, 34, 71, 0.4);
   color: #FE2247;
@@ -87,23 +109,23 @@
   animation: livePulse 1.8s ease-in-out infinite;
 }
 
-/* Custom sleek dark scrollbar */
+/* Bet365 Dark scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0F212E;
+  background: #121212;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2F4553;
+  background: #2B3036;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #557086;
+  background: #383E45;
 }
 
 

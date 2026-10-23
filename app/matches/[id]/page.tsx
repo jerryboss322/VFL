@@ -233,43 +233,43 @@ export default function MatchDetailPage() {
         </span>
       </div>
 
-      {/* Clean Stake Broadcast Scoreboard Card */}
+      {/* Bet365 Broadcast Scoreboard Card */}
       <div
-        className="stake-card p-6"
+        className="b365-card p-5"
         aria-live="polite"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#213743] pb-4 font-mono text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#2B3036] pb-3.5 font-mono text-xs">
           <span
-            className={`tnum inline-flex items-center gap-2 rounded px-2.5 py-1 font-bold ${
+            className={`tnum inline-flex items-center gap-1.5 rounded px-2.5 py-1 font-bold ${
               isLive
-                ? "stake-score-live"
+                ? "b365-score-live"
                 : isUpcoming
-                  ? "bg-[#10355A] text-[#1475E1] border border-[#1475E1]/40"
-                  : "bg-[#0F212E] text-fog border border-[#213743]"
+                  ? "bg-[#0B3E2F] text-[#F9DC1C] border border-[#F9DC1C]/30"
+                  : "bg-[#16181B] text-[#A3ACB5] border border-[#2B3036]"
             }`}
           >
-            {isLive && <span className="live-dot h-2 w-2 rounded-full bg-live" />}
+            {isLive && <span className="live-dot h-1.5 w-1.5 rounded-full bg-live" />}
             {isCompleted && effectiveClock < 480
               ? `REPLAY ${Math.max(1, Math.round((effectiveClock / 480) * 90))}'`
               : formatClock(fixture.clockSeconds, fixture.status)}
           </span>
 
           {isUpcoming && (
-            <span className="tnum rounded border border-[#2F4553] bg-[#0F212E] px-3 py-1 font-bold text-white">
+            <span className="tnum rounded border border-[#2B3036] bg-[#16181B] px-3 py-1 font-bold text-[#F9DC1C]">
               KICKOFF IN {formatCountdown(secondsToKickoff)}
             </span>
           )}
           {isLive && (
-            <span className="tnum text-fog font-medium">
+            <span className="tnum text-[#A3ACB5] font-medium">
               ELAPSED: {fixture.clockSeconds ?? 0}s / 480s
             </span>
           )}
           {isCompleted && (
-            <span className="text-win font-semibold">OFFICIAL RESULT • MARKETS SETTLED</span>
+            <span className="text-[#00E701] font-semibold">OFFICIAL RESULT • MARKETS SETTLED</span>
           )}
         </div>
 
-        <div className="my-6 grid grid-cols-3 items-center gap-4 text-center">
+        <div className="my-5 grid grid-cols-3 items-center gap-4 text-center">
           {/* Home Club */}
           <div className="flex flex-col items-center">
             <ClubBadge
@@ -279,37 +279,37 @@ export default function MatchDetailPage() {
             />
             <Link
               href={`/clubs/${fixture.home.id}`}
-              className="mt-3 text-base font-bold text-white transition-colors hover:text-[#1475E1] sm:text-lg"
+              className="mt-2.5 text-base font-bold text-white transition-colors hover:text-[#F9DC1C] sm:text-lg"
             >
               {fixture.home.name}
             </Link>
-            <span className="mt-1 font-mono text-[11px] text-fog">
+            <span className="mt-1 font-mono text-[11px] text-[#A3ACB5]">
               HOME • ATT {(fixture.home.attackRating ?? 1.0).toFixed(2)} / DEF{" "}
               {(fixture.home.defenseRating ?? 1.0).toFixed(2)}
             </span>
           </div>
 
-          {/* Center Score / Countdown Stadium Board */}
+          {/* Center Score / Countdown Board */}
           <div className="flex flex-col items-center justify-center">
             {isUpcoming ? (
-              <div className="stake-card px-6 py-4 border border-[#2F4553] bg-[#0F212E]">
-                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-fog">
-                  KICKOFF IN
+              <div className="rounded border border-[#2B3036] bg-[#16181B] px-6 py-3.5">
+                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-[#A3ACB5]">
+                  STARTS IN
                 </span>
-                <span className="tnum font-mono text-3xl font-bold text-white sm:text-4xl">
+                <span className="tnum font-mono text-3xl font-bold text-[#F9DC1C] sm:text-4xl">
                   {formatCountdown(secondsToKickoff)}
                 </span>
-                <span className="mt-1 block font-mono text-[10px] font-bold text-win">
-                  ● PRE-MATCH TRADING
+                <span className="mt-1 block font-mono text-[10px] font-bold text-[#00E701]">
+                  ● TRADING ACTIVE
                 </span>
               </div>
             ) : (
               <div className="relative">
-                <div className={`tnum flex items-center gap-4 rounded border border-[#2F4553] bg-[#0F212E] px-6 py-3 font-mono font-bold tracking-wider ${
-                  isLive ? "text-live text-4xl sm:text-5xl border-live/40 bg-live/10" : "text-white text-4xl sm:text-5xl"
+                <div className={`tnum flex items-center gap-4 rounded border border-[#2B3036] bg-[#16181B] px-6 py-3 font-mono font-bold tracking-wider ${
+                  isLive ? "text-live text-4xl sm:text-5xl border-live/40 bg-live/10" : "text-[#FFDF00] text-4xl sm:text-5xl"
                 }`}>
                   <span>{displayedScore.home}</span>
-                  <span className="text-fog/40 font-light">:</span>
+                  <span className="text-[#A3ACB5]/40 font-light">:</span>
                   <span>{displayedScore.away}</span>
                 </div>
                 {isLive && (

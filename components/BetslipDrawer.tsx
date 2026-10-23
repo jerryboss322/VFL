@@ -127,25 +127,25 @@ export function BetslipDrawer() {
   return (
     <aside
       aria-label="Betting Tickets and Open Bets"
-      className="stake-card overflow-hidden"
+      className="b365-card overflow-hidden"
     >
       {/* Two-Column Tab Header: Bet Slip | Open Bets */}
-      <div className="grid grid-cols-2 border-b border-[#213743] bg-[#0F212E] p-1 gap-1">
+      <div className="grid grid-cols-2 border-b border-[#2B3036] bg-[#16181B] p-1 gap-1">
         <button
           type="button"
           onClick={() => setActiveTab("slip")}
-          className={`flex min-h-[38px] items-center justify-center gap-2 rounded px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
+          className={`flex min-h-[36px] items-center justify-center gap-2 rounded px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
             activeTab === "slip"
-              ? "bg-[#1A2C38] text-white border border-[#2F4553]"
-              : "text-fog hover:text-white hover:bg-[#1A2C38]/40 border border-transparent"
+              ? "bg-[#027B5B] text-white border-b-2 border-[#F9DC1C]"
+              : "text-[#A3ACB5] hover:text-white hover:bg-white/5 border-b-2 border-transparent"
           }`}
         >
           <span>Bet Slip</span>
           <span
             className={`tnum rounded px-1.5 py-0.2 text-[10px] font-bold ${
               activeTab === "slip"
-                ? "bg-[#1475E1] text-white"
-                : "bg-[#213743] text-fog"
+                ? "bg-[#F9DC1C] text-[#121212]"
+                : "bg-[#2B3036] text-[#A3ACB5]"
             }`}
           >
             {slip.length}
@@ -155,18 +155,18 @@ export function BetslipDrawer() {
         <button
           type="button"
           onClick={() => setActiveTab("open")}
-          className={`flex min-h-[38px] items-center justify-center gap-2 rounded px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
+          className={`flex min-h-[36px] items-center justify-center gap-2 rounded px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
             activeTab === "open"
-              ? "bg-[#1A2C38] text-white border border-[#2F4553]"
-              : "text-fog hover:text-white hover:bg-[#1A2C38]/40 border border-transparent"
+              ? "bg-[#027B5B] text-white border-b-2 border-[#F9DC1C]"
+              : "text-[#A3ACB5] hover:text-white hover:bg-white/5 border-b-2 border-transparent"
           }`}
         >
           <span>Open Bets</span>
           <span
             className={`tnum rounded px-1.5 py-0.2 text-[10px] font-bold ${
               activeTab === "open"
-                ? "bg-[#1475E1] text-white"
-                : "bg-[#213743] text-fog"
+                ? "bg-[#F9DC1C] text-[#121212]"
+                : "bg-[#2B3036] text-[#A3ACB5]"
             }`}
           >
             {openBets.length}
@@ -179,9 +179,9 @@ export function BetslipDrawer() {
       {activeTab === "slip" && (
         <>
           {slip.length > 0 && (
-            <div className="flex items-center justify-between border-b border-line bg-ink px-4 py-2 font-mono text-[11px]">
-              <span className="font-semibold uppercase text-peach">
-                {slip.length === 1 ? "Single Wager" : `${slip.length}-Fold Accumulator`}
+            <div className="flex items-center justify-between border-b border-[#2B3036] bg-[#16181B] px-3.5 py-1.5 font-mono text-[11px]">
+              <span className="font-semibold uppercase text-[#F9DC1C]">
+                {slip.length === 1 ? "Standard Single" : `${slip.length}-Fold Parlay`}
               </span>
               <button
                 type="button"
@@ -190,7 +190,7 @@ export function BetslipDrawer() {
                   setErrorMsg(null);
                   setSuccessMsg(null);
                 }}
-                className="uppercase tracking-wider text-fog hover:text-bone"
+                className="uppercase tracking-wider text-[#A3ACB5] hover:text-white"
               >
                 Clear All
               </button>
@@ -199,50 +199,50 @@ export function BetslipDrawer() {
 
           {slip.length === 0 ? (
             <div className="p-6 text-center">
-              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-control border border-line bg-graphite font-mono text-xs font-bold text-fog">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded border border-[#2B3036] bg-[#16181B] font-mono text-xs font-bold text-[#F9DC1C]">
                 1X2
               </div>
-              <p className="text-xs font-semibold text-bone">Your bet slip is empty</p>
-              <p className="mt-1 text-xs leading-relaxed text-fog">
-                Select any pre-match odds button across any of the 6 European leagues to build a single or accumulator ticket.
+              <p className="text-xs font-semibold text-white">Your bet slip is empty</p>
+              <p className="mt-1 text-xs leading-relaxed text-[#A3ACB5]">
+                Select any odds across the European fixtures to populate your ticket.
               </p>
               {successMsg && (
                 <div
                   role="status"
-                  className="mt-4 rounded-control border border-win/40 bg-graphite p-3 font-mono text-xs text-win"
+                  className="mt-4 rounded border border-[#00E701]/40 bg-[#16181B] p-2.5 font-mono text-xs text-[#00E701]"
                 >
                   {successMsg}
                 </div>
               )}
             </div>
           ) : (
-            <form onSubmit={handlePlaceBet} className="space-y-4 p-4">
+            <form onSubmit={handlePlaceBet} className="space-y-3.5 p-3.5">
               <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
                 {slip.map((s) => (
                   <li
                     key={s.fixtureId}
-                    className="rounded-control border border-line border-l-2 border-l-peach bg-graphite p-3 text-xs"
+                    className="rounded border border-[#2B3036] border-l-2 border-l-[#F9DC1C] bg-[#16181B] p-2.5 text-xs"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         {s.fixtureLabel && (
-                          <p className="font-mono text-[10px] uppercase tracking-wider text-fog">
+                          <p className="font-mono text-[10px] uppercase tracking-wider text-[#A3ACB5]">
                             {s.fixtureLabel}
                           </p>
                         )}
-                        <p className="mt-0.5 truncate font-semibold text-bone">{s.label}</p>
-                        <p className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-fog">
+                        <p className="mt-0.5 truncate font-semibold text-white">{s.label}</p>
+                        <p className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-[#A3ACB5]">
                           Market: {s.market.replace(/_/g, " ")}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
-                        <span className="tnum rounded-control border border-peach/40 bg-peach-dim px-2 py-0.5 font-mono text-xs font-bold text-peach">
+                        <span className="tnum rounded border border-[#F9DC1C]/40 bg-[#0B3E2F] px-2 py-0.5 font-mono text-xs font-bold text-[#F9DC1C]">
                           {s.decimal.toFixed(2)}
                         </span>
                         <button
                           type="button"
                           onClick={() => removeSlipSelection(s.fixtureId)}
-                          className="font-mono text-[10px] uppercase text-fog hover:text-loss"
+                          className="font-mono text-[10px] uppercase text-[#A3ACB5] hover:text-[#ED4245]"
                           aria-label={`Remove ${s.label}`}
                         >
                           Remove
@@ -253,9 +253,9 @@ export function BetslipDrawer() {
                 ))}
               </ul>
 
-              <div className="space-y-2 border-t border-line pt-3">
+              <div className="space-y-2 border-t border-[#2B3036] pt-2.5">
                 <div className="flex items-center justify-between text-xs">
-                  <label htmlFor="slip-stake-input" className="font-medium text-fog">
+                  <label htmlFor="slip-stake-input" className="font-medium text-[#A3ACB5]">
                     Stake Amount (XTS)
                   </label>
                   {wallet && (
@@ -266,7 +266,7 @@ export function BetslipDrawer() {
                           String(Math.min(5000, Math.floor(wallet.availableMinor / 100))),
                         )
                       }
-                      className="font-mono text-[10px] text-peach hover:underline"
+                      className="font-mono text-[10px] text-[#F9DC1C] hover:underline"
                     >
                       Bal: {formatMinor(wallet.availableMinor)}
                     </button>
@@ -281,9 +281,9 @@ export function BetslipDrawer() {
                     max="5000"
                     value={stakeMajorInput}
                     onChange={(e) => setStakeMajorInput(e.target.value)}
-                    className="tnum min-h-[44px] w-full rounded-control border border-line bg-ink px-3 py-2 pr-12 font-mono text-sm font-semibold text-bone"
+                    className="tnum min-h-[40px] w-full rounded border border-[#383E45] bg-[#16181B] px-3 py-2 pr-12 font-mono text-sm font-semibold text-white focus:border-[#F9DC1C] focus:outline-none"
                   />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-fog">
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-[#A3ACB5]">
                     XTS
                   </span>
                 </div>
@@ -293,7 +293,7 @@ export function BetslipDrawer() {
                       key={amt}
                       type="button"
                       onClick={() => setStakeMajorInput(String(amt))}
-                      className="tnum min-h-[34px] rounded-control border border-line bg-graphite px-2 py-1 font-mono text-xs font-medium text-fog transition-colors hover:border-peach hover:text-bone"
+                      className="tnum min-h-[32px] rounded border border-[#2B3036] bg-[#2B3036] px-2 py-1 font-mono text-xs font-medium text-white transition-colors hover:border-[#F9DC1C] hover:bg-[#383E45]"
                     >
                       +{amt}
                     </button>
@@ -301,20 +301,20 @@ export function BetslipDrawer() {
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-control border border-line bg-ink p-3 text-xs">
-                <div className="flex justify-between text-fog">
-                  <span>Total Price</span>
-                  <span className="tnum font-mono font-bold text-bone">
+              <div className="space-y-1.5 rounded border border-[#2B3036] bg-[#16181B] p-2.5 text-xs">
+                <div className="flex justify-between text-[#A3ACB5]">
+                  <span>Total Odds</span>
+                  <span className="tnum font-mono font-bold text-white">
                     {totalOdds.toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between text-fog">
+                <div className="flex justify-between text-[#A3ACB5]">
                   <span>Stake</span>
-                  <span className="tnum font-mono text-bone">{formatMinor(stakeMinor)}</span>
+                  <span className="tnum font-mono text-white">{formatMinor(stakeMinor)}</span>
                 </div>
-                <div className="flex justify-between border-t border-line pt-2 font-semibold">
-                  <span className="text-bone">Potential Payout</span>
-                  <span className="tnum font-mono text-sm font-bold text-peach">
+                <div className="flex justify-between border-t border-[#2B3036] pt-1.5 font-semibold">
+                  <span className="text-white">To Return</span>
+                  <span className="tnum font-mono text-sm font-bold text-[#F9DC1C]">
                     {formatMinor(estReturnMinor)}
                   </span>
                 </div>
@@ -323,7 +323,7 @@ export function BetslipDrawer() {
               {errorMsg && (
                 <div
                   role="alert"
-                  className="rounded-control border border-loss/40 bg-ink p-2.5 font-mono text-xs text-loss"
+                  className="rounded border border-[#ED4245]/40 bg-[#16181B] p-2 font-mono text-xs text-[#ED4245]"
                 >
                   {errorMsg}
                 </div>
@@ -332,14 +332,14 @@ export function BetslipDrawer() {
               <button
                 type="submit"
                 disabled={placing}
-                className="flex min-h-[44px] w-full items-center justify-center rounded bg-[#1475E1] px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#0E5BB8] disabled:opacity-50"
+                className="flex min-h-[42px] w-full items-center justify-center rounded bg-[#F9DC1C] px-4 py-2 font-mono text-xs font-black uppercase tracking-wider text-[#121212] transition-colors hover:bg-[#FFDF00] shadow-sm disabled:opacity-50"
               >
                 <span>
                   {placing
                     ? "Locking Wager..."
                     : user
                       ? `Place Bet • ${formatMinor(stakeMinor)}`
-                      : "Sign In to Place Bet"}
+                      : "Join / Sign In to Place Bet"}
                 </span>
               </button>
 
