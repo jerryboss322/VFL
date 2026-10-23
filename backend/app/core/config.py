@@ -1,3 +1,4 @@
+import os
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
@@ -5,10 +6,11 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     model_config = ConfigDict(env_file=".env", extra="ignore")
 
-    DATABASE_URL: str = "postgresql+asyncpg://postgres@localhost:5433/virtual_football"
-    SECRET_KEY: str = "dev-secret-change-me"
+    DATABASE_URL: str = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or "postgresql+asyncpg://postgres@localhost:5433/virtual_football"
+    SECRET_KEY: str = os.environ.get("SECRET_KEY") or "dev-secret-change-me"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
 
     # Simulation
     MATCH_DURATION_SECONDS: int = 480  # 8 minutes wall-clock

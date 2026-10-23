@@ -191,7 +191,8 @@ for _prefix in ("", "/api"):
 
         url = settings.DATABASE_URL
         info: dict = {
-            "database_url_configured": "DATABASE_URL" in os.environ,
+            "database_url_configured": bool(os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")),
+            "env_keys_found": [k for k in ["DATABASE_URL", "POSTGRES_URL", "DATABASE_URL_UNPOOLED", "SECRET_KEY"] if k in os.environ],
             "points_to_localhost": "localhost" in url or "127.0.0.1" in url,
         }
         try:
@@ -206,5 +207,25 @@ for _prefix in ("", "/api"):
             info["connected"] = False
             info["error"] = type(exc).__name__ + ": " + str(exc).splitlines()[0][:200] if str(exc) else type(exc).__name__
         return info
+
+    @_router.post("/system/init-db", tags=["system"])
+    async def init_db(request: Request):
+        """Auto-initialize schema and seed leagues/clubs if database is empty."""
+        secret = os.environ.get("SECRET_KEY")
+        auth_header = request.headers.get("authorization")
+        if secret and secret != "dev-secret-change-me":
+            if auth_header != f"Bearer {secret}":
+                raise HTTPException(status_code=401, detail="Unauthorized")
+
+        from app.core.database import Base, engine
+        from seed import seed
+
+        # Create all tables
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        # Seed data
+        await seed(force_reset=False)
+        return {"status": "success", "message": "Database tables and seed data created successfully"}
 
     app.include_router(_router)
