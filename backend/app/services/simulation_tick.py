@@ -12,8 +12,142 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
+from app.models.club import Club
 from app.models.fixture import Fixture
+from app.models.league import League
+from app.models.odds import OddsSnapshot
+from app.models.season import Season
+from app.services.odds_engine import generate_fixture_markets
 from engine.simulator import MATCH_DURATION_SECONDS, MatchEngine
+
+
+def _generate_pairings(clubs: list[Club], round_idx: int) -> list[tuple[Club, Club]]:
+    """Circle method round-robin rotation for arbitrary matchdays."""
+    n = len(clubs)
+    if n < 2:
+        return []
+    rotation = list(clubs)
+    for _ in range(round_idx % max(1, n - 1)):
+        rotation = [rotation[0]] + [rotation[-1]] + rotation[1:-1]
+    pairings: list[tuple[Club, Club]] = []
+    for i in range(n // 2):
+        c1 = rotation[i]
+        c2 = rotation[n - 1 - i]
+        if round_idx % 2 == 0:
+            pairings.append((c1, c2))
+        else:
+            pairings.append((c2, c1))
+    return pairings
+
+
+async def _ensure_infinite_upcoming_fixtures(session, now: datetime, pre_match: int) -> list[Fixture]:
+    """Ensure every league always has upcoming matchdays scheduled into the infinite future."""
+    leagues_res = await session.execute(select(League))
+    leagues = leagues_res.scalars().all()
+    if not leagues:
+        return []
+
+    created_any = False
+    for lg in leagues:
+        # Check upcoming fixtures for this league
+        upcoming_res = await session.execute(
+            select(Fixture)
+            .join(Season, Fixture.season_id == Season.id)
+            .where(Season.league_id == lg.id, Fixture.status == "upcoming")
+        )
+        upcoming_lg = upcoming_res.scalars().all()
+
+        # If upcoming matchdays is below threshold (e.g. less than 4 upcoming matchdays), generate more
+        distinct_upcoming_mds = len(set(f.matchday for f in upcoming_lg))
+        if distinct_upcoming_mds < 4:
+            # Find max matchday across this league
+            max_md_res = await session.execute(
+                select(Fixture)
+                .join(Season, Fixture.season_id == Season.id)
+                .where(Season.league_id == lg.id)
+                .order_by(Fixture.matchday.desc())
+                .limit(1)
+            )
+            latest_fx = max_md_res.scalar_one_or_none()
+            max_md = latest_fx.matchday if latest_fx else 0
+
+            season_res = await session.execute(
+                select(Season)
+                .where(Season.league_id == lg.id)
+                .order_by(Season.created_at.desc())
+                .limit(1)
+            )
+            season = season_res.scalar_one_or_none()
+            if not season:
+                season = Season(
+                    league_id=lg.id,
+                    name=f"Infinite Season {max_md // 38 + 1}",
+                    year=now.year,
+                    is_active=True,
+                )
+                session.add(season)
+                await session.flush()
+
+            clubs_res = await session.execute(
+                select(Club).where(Club.league_id == lg.id).order_by(Club.name.asc())
+            )
+            clubs = list(clubs_res.scalars().all())
+            if len(clubs) < 2:
+                continue
+
+            # Determine kickoff base timestamp for new matchdays
+            if latest_fx and latest_fx.status == "upcoming":
+                base_time = _parse_iso(latest_fx.kickoff_at)
+            else:
+                base_time = now + timedelta(seconds=pre_match)
+
+            # Generate 4 additional matchdays
+            for offset_idx in range(1, 5):
+                target_md = max_md + offset_idx
+                ko_time = base_time + timedelta(seconds=offset_idx * (MATCH_DURATION_SECONDS + pre_match))
+                pairings = _generate_pairings(clubs, target_md)
+                for home, away in pairings:
+                    fx = Fixture(
+                        season_id=season.id,
+                        home_club_id=home.id,
+                        away_club_id=away.id,
+                        matchday=target_md,
+                        kickoff_at=ko_time.isoformat(),
+                        status="upcoming",
+                    )
+                    session.add(fx)
+                    await session.flush()
+                    markets = generate_fixture_markets(
+                        fixture_id=fx.id,
+                        home_name=home.name,
+                        away_name=away.name,
+                        home_attack=home.attack_rating,
+                        home_defense=home.defense_rating,
+                        away_attack=away.attack_rating,
+                        away_defense=away.defense_rating,
+                        version=1,
+                        suspended=False,
+                    )
+                    session.add(
+                        OddsSnapshot(
+                            fixture_id=fx.id,
+                            version=1,
+                            markets=markets,
+                            is_active=True,
+                        )
+                    )
+                    created_any = True
+
+    if created_any:
+        await session.commit()
+
+    # Re-query all fixtures ordered by matchday
+    refreshed = await session.execute(
+        select(Fixture)
+        .options(selectinload(Fixture.home_club), selectinload(Fixture.away_club))
+        .order_by(Fixture.matchday.asc(), Fixture.created_at.asc())
+    )
+    return refreshed.scalars().all()
 
 
 def _parse_iso(ts: str) -> datetime:
@@ -35,12 +169,15 @@ async def run_simulation_tick() -> dict:
     advanced = kicked_off = 0
 
     async with AsyncSessionLocal() as session:
-        res = await session.execute(
-            select(Fixture)
-            .options(selectinload(Fixture.home_club), selectinload(Fixture.away_club))
-            .order_by(Fixture.matchday.asc(), Fixture.created_at.asc())
-        )
-        fixtures = res.scalars().all()
+        # Guarantee infinite matchday pipeline: if upcoming fixtures run low or run out, auto-generate more
+        fixtures = await _ensure_infinite_upcoming_fixtures(session, now, pre_match)
+        if not fixtures:
+            res = await session.execute(
+                select(Fixture)
+                .options(selectinload(Fixture.home_club), selectinload(Fixture.away_club))
+                .order_by(Fixture.matchday.asc(), Fixture.created_at.asc())
+            )
+            fixtures = res.scalars().all()
         if not fixtures:
             return {"advanced": 0, "kickedOff": 0}
 
