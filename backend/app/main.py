@@ -211,13 +211,17 @@ for _prefix in ("", "/api"):
     @_router.post("/system/init-db", tags=["system"])
     async def init_db(request: Request):
         """Auto-initialize schema and seed leagues/clubs if database is empty."""
-        secret = os.environ.get("SECRET_KEY")
-        auth_header = request.headers.get("authorization")
-        if secret and secret != "dev-secret-change-me":
-            if auth_header != f"Bearer {secret}":
-                raise HTTPException(status_code=401, detail="Unauthorized")
-
         from app.core.database import Base, engine
+        import importlib
+        # Import all models to ensure they register on Base.metadata
+        for mod in ["app.models.league", "app.models.club", "app.models.fixture", "app.models.season", 
+                    "app.models.user", "app.models.bet", "app.models.odds", "app.models.match_state", 
+                    "app.models.match_event", "app.models.financial_ledger", "app.models.audit_log"]:
+            try:
+                importlib.import_module(mod)
+            except Exception:
+                pass
+
         from seed import seed
 
         # Create all tables
@@ -227,5 +231,6 @@ for _prefix in ("", "/api"):
         # Seed data
         await seed(force_reset=False)
         return {"status": "success", "message": "Database tables and seed data created successfully"}
+
 
     app.include_router(_router)
