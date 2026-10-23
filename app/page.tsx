@@ -491,26 +491,28 @@ export default function HomePage() {
             return (
               <div
                 key={fx.id}
-                className="group relative flex flex-col gap-4 p-4.5 transition-all duration-200 hover:bg-white/[0.03] md:flex-row md:items-center md:justify-between"
+                className="group relative flex flex-col gap-4 p-4.5 rounded-xl border border-white/[0.04] bg-coal/50 backdrop-blur-md transition-all duration-200 hover:border-peach/30 hover:bg-coal/90 hover:shadow-xl hover:shadow-black/40 md:flex-row md:items-center md:justify-between"
               >
-                {/* Left Column: Status & Clubs */}
+                {/* Left Column: Match Clock & Scoreboard Badge */}
                 <div className="flex flex-1 items-center gap-4">
-                  <div className={`flex w-22 shrink-0 flex-col items-center justify-center rounded-xl border py-2 px-1 text-center font-mono shadow-xs ${
+                  <div className={`flex w-24 shrink-0 flex-col items-center justify-center rounded-2xl py-2.5 px-1.5 text-center font-mono shadow-md ${
                     isLive
-                      ? "border-live/40 bg-live/10 text-live"
+                      ? "scoreboard-box-live text-live animate-pulse"
                       : isUpcoming
-                        ? "border-peach/30 bg-peach/5 text-peach"
-                        : "border-white/5 bg-ink/70 text-fog/80"
+                        ? "scoreboard-box text-peach"
+                        : "border border-white/5 bg-ink/80 text-fog/70"
                   }`}>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-fog/70">MD {fx.matchday}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-fog/60">
+                      MD {fx.matchday}
+                    </span>
                     {isLive && (
-                      <span className="tnum mt-0.5 inline-flex items-center gap-1.5 text-xs font-black tracking-wide text-live">
+                      <span className="tnum mt-1 inline-flex items-center gap-1.5 text-sm font-black tracking-wider text-live">
                         <span className="live-dot h-2 w-2 rounded-full bg-live" />
                         {clockToMinute(fx.clockSeconds)}
                       </span>
                     )}
                     {isUpcoming && (
-                      <span className="tnum mt-0.5 text-xs font-bold text-peach">
+                      <span className="tnum mt-1 text-xs font-black tracking-tight text-peach">
                         {fxSecLeft > 0 && fxSecLeft <= 3600
                           ? formatCountdown(fxSecLeft)
                           : new Date(fx.kickoffAt).toLocaleTimeString([], {
@@ -520,7 +522,7 @@ export default function HomePage() {
                       </span>
                     )}
                     {isCompleted && (
-                      <span className="mt-0.5 text-xs font-bold text-fog/70">FT</span>
+                      <span className="mt-1 text-xs font-black text-fog/60">FULL TIME</span>
                     )}
                   </div>
 
@@ -552,13 +554,15 @@ export default function HomePage() {
                         </Link>
                       </div>
                       {(isLive || isCompleted) && (
-                        <span
-                          className={`tnum font-mono text-lg font-black tracking-tight px-2 py-0.5 rounded-lg ${
-                            isLive ? "bg-live/20 text-live border border-live/30" : "text-bone"
+                        <div
+                          className={`tnum font-mono text-xl font-black px-3 py-1 rounded-xl shadow-inner min-w-[38px] text-center ${
+                            isLive
+                              ? "bg-live/25 text-live border border-live/40 shadow-live/20"
+                              : "bg-black/50 text-bone border border-white/10"
                           }`}
                         >
                           {fx.homeGoals ?? 0}
-                        </span>
+                        </div>
                       )}
                     </div>
 
@@ -589,16 +593,19 @@ export default function HomePage() {
                         </Link>
                       </div>
                       {(isLive || isCompleted) && (
-                        <span
-                          className={`tnum font-mono text-lg font-black tracking-tight px-2 py-0.5 rounded-lg ${
-                            isLive ? "bg-live/20 text-live border border-live/30" : "text-bone"
+                        <div
+                          className={`tnum font-mono text-xl font-black px-3 py-1 rounded-xl shadow-inner min-w-[38px] text-center ${
+                            isLive
+                              ? "bg-live/25 text-live border border-live/40 shadow-live/20"
+                              : "bg-black/50 text-bone border border-white/10"
                           }`}
                         >
                           {fx.awayGoals ?? 0}
-                        </span>
+                        </div>
                       )}
                     </div>
                   </div>
+
 
                 </div>
 

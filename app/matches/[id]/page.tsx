@@ -289,24 +289,38 @@ export default function MatchDetailPage() {
             </span>
           </div>
 
-          {/* Center Score / Countdown */}
+          {/* Center Score / Countdown Stadium Board */}
           <div className="flex flex-col items-center justify-center">
             {isUpcoming ? (
-              <div className="rounded-card border border-line bg-ink px-5 py-3">
-                <span className="block font-mono text-[10px] uppercase tracking-widest text-fog">
+              <div className="scoreboard-box rounded-2xl px-6 py-4 shadow-xl">
+                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-fog/70">
                   KICKOFF IN
                 </span>
-                <span className="tnum font-mono text-2xl font-bold text-peach sm:text-3xl">
+                <span className="tnum font-mono text-3xl font-black text-peach sm:text-4xl drop-shadow-xs">
                   {formatCountdown(secondsToKickoff)}
+                </span>
+                <span className="mt-1 block font-mono text-[10px] font-bold text-win">
+                  ● PRE-MATCH TRADING
                 </span>
               </div>
             ) : (
-              <div className="tnum rounded-card border border-line bg-ink px-6 py-3 font-mono text-3xl font-bold tracking-tight text-bone sm:text-5xl">
-                {displayedScore.home} <span className="text-fog">:</span>{" "}
-                {displayedScore.away}
+              <div className="relative">
+                <div className={`tnum flex items-center gap-4 rounded-2xl px-8 py-4 font-mono font-black tracking-wider shadow-2xl ${
+                  isLive ? "scoreboard-box-live text-live sm:text-6xl text-4xl" : "scoreboard-box text-white sm:text-6xl text-4xl"
+                }`}>
+                  <span className="drop-shadow-md">{displayedScore.home}</span>
+                  <span className="text-white/30 font-light">:</span>
+                  <span className="drop-shadow-md">{displayedScore.away}</span>
+                </div>
+                {isLive && (
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-live/50 bg-live px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-live/50 animate-pulse">
+                    LIVE IN-PLAY
+                  </div>
+                )}
               </div>
             )}
           </div>
+
 
           {/* Away Club */}
           <div className="flex flex-col items-center">

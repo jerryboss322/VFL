@@ -5,21 +5,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#0B0F17",
-        coal: "#111723",
-        graphite: "#182030",
-        line: "#242F44",
-        fog: "#8E9BB0",
-        bone: "#EDF1F7",
-        peach: "#6CA6E8",
-        "peach-dim": "#16253A",
-        live: "#D96B62",
-        win: "#48B588",
-        loss: "#D97575",
+        ink: "#070A0F",
+        coal: "#0E131F",
+        graphite: "#151C2C",
+        line: "#1F293D",
+        fog: "#94A3B8",
+        bone: "#F1F5F9",
+        peach: "#38BDF8", // Vibrant Sky Cyan (Stake / Modern Sportsbook primary)
+        "peach-dim": "#0C2338",
+        live: "#F43F5E",  // Radiant Rose/Crimson for in-play excitement
+        win: "#10B981",   // Emerald Neon
+        loss: "#EF4444",  // Coral Red
+        gold: "#F59E0B",  // Stadium Gold for special odds
+        violet: "#8B5CF6",// Cyber Purple for accumulator highlights
       },
       borderRadius: {
-        control: "6px",
-        card: "8px",
+        control: "8px",
+        card: "14px",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "sans-serif"],
@@ -30,3 +32,4 @@ const config: Config = {
   plugins: [],
 };
 export default config;
+
