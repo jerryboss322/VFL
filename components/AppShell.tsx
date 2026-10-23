@@ -7,6 +7,8 @@ import { AppProvider, useApp } from "@/components/AppContext";
 import { AuthModal } from "@/components/AuthModal";
 import { BetslipDrawer } from "@/components/BetslipDrawer";
 import { formatMinor } from "@/lib/betslip";
+import { LEAGUE_LOGOS } from "@/lib/clubLogos";
+
 
 const NAV: { href: string; label: string }[] = [
   { href: "/", label: "Match Center" },
@@ -217,6 +219,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               {leagues.map((lg) => {
                 const isSelected = lg.id === selectedLeagueId;
                 const countryTag = COUNTRY_CODE[lg.country] ?? lg.shortName;
+                const leagueLogo = LEAGUE_LOGOS[lg.shortName] || LEAGUE_LOGOS[lg.name];
                 return (
                   <button
                     key={lg.id}
@@ -224,19 +227,32 @@ function ShellInner({ children }: { children: ReactNode }) {
                     role="tab"
                     aria-selected={isSelected}
                     onClick={() => setSelectedLeagueId(lg.id)}
-                    className={`shrink-0 inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-medium transition-all ${
+                    className={`shrink-0 inline-flex items-center gap-2.5 rounded-xl px-3.5 py-1.5 text-xs font-medium transition-all ${
                       isSelected
-                        ? "bg-peach/20 text-peach border border-peach/40 shadow-xs font-bold"
+                        ? "bg-peach/20 text-peach border border-peach/40 shadow-xs font-bold scale-[1.02]"
                         : "text-fog hover:text-bone hover:bg-white/[0.04] border border-transparent"
                     }`}
                   >
-                    <span className="font-mono text-[10px] font-black uppercase px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-bone/90">
-                      {countryTag}
-                    </span>
+                    {leagueLogo ? (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/10 p-0.5 shadow-xs">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={leagueLogo}
+                          alt={lg.name}
+                          className="h-4 w-4 object-contain filter drop-shadow-xs"
+                          loading="lazy"
+                        />
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[10px] font-black uppercase px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-bone/90">
+                        {countryTag}
+                      </span>
+                    )}
                     <span>{lg.name}</span>
                   </button>
                 );
               })}
+
             </div>
           </div>
         )}

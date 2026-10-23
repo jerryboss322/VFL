@@ -6,6 +6,8 @@ import { useApp } from "@/components/AppContext";
 import { ClubBadge } from "@/components/ClubBadge";
 import { StatePanel } from "@/components/StatePanel";
 import { api } from "@/lib/api/client";
+import { LEAGUE_LOGOS } from "@/lib/clubLogos";
+
 import type {
   Fixture,
   FixtureOdds,
@@ -238,79 +240,101 @@ export default function HomePage() {
     Math.max(0, Math.round(((240 - secondsUntilKickoff) / 240) * 100)),
   );
 
-  return (
-    <div className="space-y-5">
-      {/* League Broadcast Status & Countdown Banner */}
-      <section className="pitch-grid relative overflow-hidden rounded-card border border-line bg-coal p-5">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-control bg-graphite px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-bone">
-                {selectedLeague?.country ?? "EUROPE"} • {selectedLeague?.shortName ?? "VFN"}
-              </span>
-              {isCurrentlyLive ? (
-                <span className="inline-flex items-center gap-1.5 rounded-control bg-live/20 px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider text-live">
-                  <span className="live-dot h-2 w-2 rounded-full bg-live" />
-                  MATCHDAY {activeLiveMd} IN PLAY • {clockToMinute(activeLiveClock)}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-control border border-peach/40 bg-peach-dim px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider text-peach">
-                  <span className="live-dot h-2 w-2 rounded-full bg-peach" />
-                  PRE-MATCH WINDOW • MATCHDAY {nextMdNumber}
-                </span>
-              )}
-            </div>
+  const currentLeagueLogo = selectedLeague ? (LEAGUE_LOGOS[selectedLeague.shortName] || LEAGUE_LOGOS[selectedLeague.name]) : null;
 
-            <h1 className="text-lg font-bold tracking-tight text-bone sm:text-xl">
-              {selectedLeague?.name ?? "European Football"} —{" "}
-              {isCurrentlyLive
-                ? `Matchday ${activeLiveMd} Live`
-                : `Matchday ${nextMdNumber} Pre-Match Markets`}
-            </h1>
-            <p className="text-xs text-fog">
-              {isCurrentlyLive
-                ? `Matches are underway. Matchday ${
-                    nextMdNumber ?? (activeLiveMd ?? 1) + 1
-                  } kicks off automatically 4 minutes after full-time settlement.`
-                : `All Matchday ${nextMdNumber} fixtures kick off simultaneously when the 4-minute countdown reaches 00:00.`}
-            </p>
+  return (
+    <div className="space-y-6">
+      {/* Stake.com-Style Elite Broadcast Banner */}
+      <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#121927] via-[#0E1420] to-[#080C14] p-6 shadow-2xl shadow-black/40">
+        {/* Ambient atmospheric glows */}
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-peach/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-win/10 blur-3xl" />
+
+        <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-center">
+          <div className="flex items-center gap-5">
+            {currentLeagueLogo && (
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2 shadow-inner backdrop-blur-md">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentLeagueLogo}
+                  alt={selectedLeague?.name ?? "League"}
+                  className="h-12 w-12 object-contain filter drop-shadow-md"
+                />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-md border border-white/10 bg-white/5 px-2.5 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest text-bone">
+                  {selectedLeague?.country ?? "EUROPE"} • {selectedLeague?.shortName ?? "VFN"}
+                </span>
+                {isCurrentlyLive ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-live/40 bg-live/15 px-2.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wider text-live shadow-xs">
+                    <span className="live-dot h-2 w-2 rounded-full bg-live" />
+                    MATCHDAY {activeLiveMd} IN PLAY • {clockToMinute(activeLiveClock)}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-peach/40 bg-peach/15 px-2.5 py-0.5 font-mono text-[11px] font-black uppercase tracking-wider text-peach shadow-xs">
+                    <span className="live-dot h-2 w-2 rounded-full bg-peach" />
+                    PRE-MATCH WINDOW • MATCHDAY {nextMdNumber}
+                  </span>
+                )}
+              </div>
+
+              <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+                {selectedLeague?.name ?? "European Football"}{" "}
+                <span className="text-fog/70 font-semibold">—</span>{" "}
+                <span className="bg-gradient-to-r from-peach to-sky-300 bg-clip-text text-transparent">
+                  {isCurrentlyLive
+                    ? `Matchday ${activeLiveMd} Live`
+                    : `Matchday ${nextMdNumber} Markets`}
+                </span>
+              </h1>
+              <p className="text-xs text-fog/80 max-w-xl">
+                {isCurrentlyLive
+                  ? `Simulated fixtures in action. Live odds adjust dynamically. Next matchday kicks off automatically after settlement.`
+                  : `Next matchday fixtures kick off simultaneously once the 4-minute countdown reaches zero.`}
+              </p>
+            </div>
           </div>
 
-          {/* Right: Digital Clock / Countdown */}
-          <div className="flex shrink-0 items-center gap-4 rounded-card border border-line bg-ink px-4 py-3">
+          {/* Right: Digital Clock / Countdown Widget */}
+          <div className="flex shrink-0 items-center gap-4 rounded-xl border border-white/10 bg-black/40 px-5 py-3.5 backdrop-blur-md shadow-inner">
             {isCurrentlyLive ? (
               <div className="text-right">
-                <span className="block font-mono text-[10px] uppercase tracking-widest text-fog">
+                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-fog/70">
                   MATCH CLOCK
                 </span>
-                <span className="tnum font-mono text-2xl font-bold text-live">
+                <span className="tnum font-mono text-3xl font-black text-live">
                   {clockToMinute(activeLiveClock)}
                 </span>
-                <span className="block font-mono text-[10px] text-fog">
-                  {formatCountdown(480 - activeLiveClock)} REM
+                <span className="block font-mono text-[10px] text-fog/60">
+                  {formatCountdown(480 - activeLiveClock)} REMAINING
                 </span>
               </div>
             ) : (
               <div className="text-right">
-                <span className="block font-mono text-[10px] uppercase tracking-widest text-fog">
+                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-fog/70">
                   KICKOFF IN
                 </span>
-                <span className="tnum font-mono text-2xl font-bold text-peach">
+                <span className="tnum font-mono text-3xl font-black text-peach drop-shadow-xs">
                   {formatCountdown(secondsUntilKickoff)}
                 </span>
-                <span className="block font-mono text-[10px] text-win">
-                  BETTING OPEN
+                <span className="block font-mono text-[10px] font-bold tracking-wide text-win">
+                  ● BETTING OPEN
                 </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-ink">
+
+        {/* Sleek Stake-style Glowing Progress Bar */}
+        <div className="mt-5 h-2 w-full overflow-hidden rounded-full bg-black/60 p-[1px] shadow-inner">
           <div
-            className={`h-full transition-all duration-700 ${
-              isCurrentlyLive ? "bg-live" : "bg-peach"
+            className={`h-full rounded-full transition-all duration-700 shadow-sm ${
+              isCurrentlyLive
+                ? "bg-gradient-to-r from-live to-red-400 shadow-live/50"
+                : "bg-gradient-to-r from-peach to-sky-400 shadow-peach/50"
             }`}
             style={{
               width: `${isCurrentlyLive ? liveProgressPct : countdownProgressPct}%`,
@@ -319,9 +343,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Matchday Ribbon */}
+      {/* Matchday Ribbon & Market Switcher */}
       <div
-        className="flex items-center gap-1.5 overflow-x-auto pb-1"
+        className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
         role="tablist"
         aria-label="Matchdays"
       >
@@ -332,21 +356,21 @@ export default function HomePage() {
               key={md}
               type="button"
               onClick={() => setSelectedMatchday(md)}
-              className={`min-h-[38px] shrink-0 inline-flex items-center gap-2 rounded-control border px-3.5 py-1.5 font-mono text-xs font-semibold transition-colors ${
+              className={`min-h-[38px] shrink-0 inline-flex items-center gap-2 rounded-xl px-4 py-1.5 font-mono text-xs font-bold transition-all duration-150 ${
                 isSelected
-                  ? "border-peach bg-peach-dim text-peach"
-                  : "border-line bg-coal text-fog hover:border-fog hover:text-bone"
+                  ? "bg-peach text-ink shadow-md shadow-peach/25 scale-[1.02]"
+                  : "border border-white/10 bg-coal/70 text-fog hover:text-bone hover:border-white/20 hover:bg-coal"
               }`}
             >
-              <span>Matchday {md}</span>
+              <span>MD {md}</span>
               {status === "live" && (
                 <span className="live-dot h-2 w-2 rounded-full bg-live" title="Live" />
               )}
               {status === "completed" && (
-                <span className="text-[10px] text-fog/70">FT</span>
+                <span className={`text-[10px] ${isSelected ? "text-ink/70" : "text-fog/70"}`}>FT</span>
               )}
               {status === "upcoming" && md === nextMdNumber && (
-                <span className="text-[10px] text-win">OPEN</span>
+                <span className={`text-[10px] font-black ${isSelected ? "text-ink" : "text-win"}`}>OPEN</span>
               )}
             </button>
           );
@@ -354,10 +378,10 @@ export default function HomePage() {
         <button
           type="button"
           onClick={() => setSelectedMatchday("all")}
-          className={`min-h-[38px] shrink-0 rounded-control border px-3 py-1.5 font-mono text-xs font-semibold transition-colors ${
+          className={`min-h-[38px] shrink-0 rounded-xl px-3.5 py-1.5 font-mono text-xs font-bold transition-all ${
             selectedMatchday === "all"
-              ? "border-peach bg-peach-dim text-peach"
-              : "border-line bg-coal text-fog hover:border-fog hover:text-bone"
+              ? "bg-peach text-ink shadow-md shadow-peach/25"
+              : "border border-white/10 bg-coal/70 text-fog hover:text-bone hover:border-white/20"
           }`}
         >
           All Matchdays
@@ -366,6 +390,7 @@ export default function HomePage() {
 
       {/* Market Selector & Status Filter Bar */}
       <div className="space-y-2.5 rounded-card border border-line bg-coal p-3.5">
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="mr-1 font-mono text-[11px] uppercase tracking-wider text-fog">

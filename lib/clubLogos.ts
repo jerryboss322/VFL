@@ -231,3 +231,18 @@ export const CLUB_LOGOS: Record<string, string> = {
   "WIL": "https://raw.githubusercontent.com/luukhopman/football-logos/master/logos/Netherlands%20-%20Eredivisie/Willem%20II%20Tilburg.png",
   "willem ii": "https://raw.githubusercontent.com/luukhopman/football-logos/master/logos/Netherlands%20-%20Eredivisie/Willem%20II%20Tilburg.png"
 };
+
+export const LEAGUE_LOGOS: Record<string, string> = {
+  "EPL": "https://media.api-sports.io/football/leagues/39.png",
+  "English Premier League": "https://media.api-sports.io/football/leagues/39.png",
+  "LAL": "https://media.api-sports.io/football/leagues/140.png",
+  "Spanish La Liga": "https://media.api-sports.io/football/leagues/140.png",
+  "SEA": "https://media.api-sports.io/football/leagues/135.png",
+  "Italian Serie A": "https://media.api-sports.io/football/leagues/135.png",
+  "BUN": "https://media.api-sports.io/football/leagues/78.png",
+  "German Bundesliga": "https://media.api-sports.io/football/leagues/78.png",
+  "FL1": "https://media.api-sports.io/football/leagues/61.png",
+  "French Ligue 1": "https://media.api-sports.io/football/leagues/61.png",
+  "ERE": "https://media.api-sports.io/football/leagues/88.png",
+  "Dutch Eredivisie": "https://media.api-sports.io/football/leagues/88.png",
+};
