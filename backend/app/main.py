@@ -182,4 +182,29 @@ for _prefix in ("", "/api"):
     async def health():
         return {"status": "ok"}
 
+    @_router.get("/health/db", tags=["system"])
+    async def health_db():
+        """Report database connectivity and whether the schema/seed data exist (no secrets exposed)."""
+        from sqlalchemy import text
+
+        from app.core.database import engine
+
+        url = settings.DATABASE_URL
+        info: dict = {
+            "database_url_configured": "DATABASE_URL" in os.environ,
+            "points_to_localhost": "localhost" in url or "127.0.0.1" in url,
+        }
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+                info["connected"] = True
+                try:
+                    info["leagues"] = (await conn.execute(text("SELECT count(*) FROM leagues"))).scalar()
+                except Exception as exc:  # schema missing
+                    info["schema_error"] = type(exc).__name__ + ": " + str(exc).splitlines()[0][:200]
+        except Exception as exc:
+            info["connected"] = False
+            info["error"] = type(exc).__name__ + ": " + str(exc).splitlines()[0][:200] if str(exc) else type(exc).__name__
+        return info
+
     app.include_router(_router)
