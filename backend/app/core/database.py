@@ -27,6 +27,11 @@ def _normalize_db_url(raw: str) -> tuple[str, dict]:
         connect_args["ssl"] = "require"
     elif "supabase" in parts.netloc or "neon" in parts.netloc:
         connect_args["ssl"] = "require"
+
+    # Transaction pooler (port 6543) or Supabase poolers require statement_cache_size=0
+    # to avoid asyncpg 'prepared statement does not exist' errors
+    if "6543" in parts.netloc or "pooler" in parts.netloc or "supabase" in parts.netloc:
+        connect_args["statement_cache_size"] = 0
     url = urlunsplit(parts._replace(query=urlencode(query)))
     return url, connect_args
 

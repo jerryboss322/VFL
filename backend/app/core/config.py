@@ -56,11 +56,15 @@ def _resolve_database_url() -> str:
 class Settings(BaseSettings):
     model_config = ConfigDict(env_file=".env", extra="ignore")
 
-    DATABASE_URL: str = _resolve_database_url()
+    DATABASE_URL: str = ""
     SECRET_KEY: str = os.environ.get("SECRET_KEY") or "dev-secret-change-me"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
+    def __init__(self, **values):
+        super().__init__(**values)
+        # Override BaseSettings env auto-population which picks stale Neon DATABASE_URL
+        self.DATABASE_URL = _resolve_database_url()
 
     # Simulation
     MATCH_DURATION_SECONDS: int = 480  # 8 minutes wall-clock
@@ -79,4 +83,8 @@ class Settings(BaseSettings):
     MAX_STAKE_MINOR: int = 500000  # 5,000.00 XTS
 
 
+# Ensure os.environ is synchronized and Settings uses resolved URL
+_resolved_db_url = _resolve_database_url()
+os.environ["DATABASE_URL"] = _resolved_db_url
 settings = Settings()
+settings.DATABASE_URL = _resolved_db_url
