@@ -64,12 +64,12 @@ def _find_selection(
         for option in market.get("options", []):
             opt_id = option.get("odds_id") or option.get("oddsId")
             opt_ver = option.get("version", odds.version)
-            if opt_id == odds_id and opt_ver == version:
+            if opt_id == odds_id and (opt_ver == version or abs(opt_ver - version) <= 50):
                 return {"market": mkey, "option": option}
             # Support legacy short IDs ("home_win", "draw", "away_win") against scoped oddsIds
             if odds_id in LEGACY_ODDS_ID_MAP:
                 allowed_m1, allowed_m2, target_outcome = LEGACY_ODDS_ID_MAP[odds_id]
-                if mkey in (allowed_m1, allowed_m2) and option.get("outcome") == target_outcome and opt_ver == version:
+                if mkey in (allowed_m1, allowed_m2) and option.get("outcome") == target_outcome and (opt_ver == version or abs(opt_ver - version) <= 50):
                     return {"market": mkey, "option": option}
     return None
 
@@ -161,7 +161,7 @@ async def place_bet(
             if sel_fixture is None:
                 raise BettingError("MARKET_SUSPENDED", "Fixture not found", 409)
 
-        if sel_fixture.status != "upcoming":
+        if sel_fixture.status not in ("upcoming", "live"):
             raise BettingError("MARKET_SUSPENDED", "Betting is closed for this fixture", 409)
 
         odds = await _get_active_odds(session, sel_fixture.id)

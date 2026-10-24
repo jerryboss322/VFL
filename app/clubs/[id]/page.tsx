@@ -82,17 +82,11 @@ export default function ClubProfilePage() {
                 {club.name}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs">
-                <span className="rounded-control border border-line bg-ink px-2.5 py-1 text-bone">
-                  ATT RATING:{" "}
-                  <strong className="text-peach">
-                    {(club.attackRating ?? 1.0).toFixed(2)}
-                  </strong>
+                <span className="rounded-control border border-line bg-ink px-2.5 py-1 text-fog">
+                  LEAGUE SQUAD • <strong className="text-bone">{club.shortName}</strong>
                 </span>
-                <span className="rounded-control border border-line bg-ink px-2.5 py-1 text-bone">
-                  DEF RATING:{" "}
-                  <strong className="text-win">
-                    {(club.defenseRating ?? 1.0).toFixed(2)}
-                  </strong>
+                <span className="rounded-control border border-line bg-ink px-2.5 py-1 text-fog">
+                  STATUS: <strong className="text-accent">ACTIVE COMPETITOR</strong>
                 </span>
               </div>
             </div>

@@ -297,7 +297,7 @@ export default function HomePage() {
 
   return (
     <div className="space-y-3">
-      {/* Bet365-Style Clean Dark Sportsbook Header */}
+      {/* VFL Clean Dark Sportsbook Header */}
       <section className="b365-card p-4">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div className="flex items-center gap-3.5">
@@ -322,7 +322,7 @@ export default function HomePage() {
                     LIVE IN-PLAY • {clockToMinute(activeLiveClock)}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded bg-[#0B3E2F] px-2 py-0.5 font-mono text-[10px] font-bold text-[#F9DC1C]">
+                  <span className="inline-flex items-center gap-1.5 rounded bg-brand-dark px-2 py-0.5 font-mono text-[10px] font-bold text-accent">
                     PRE-MATCH • MD {nextMdNumber}
                   </span>
                 )}
@@ -331,7 +331,7 @@ export default function HomePage() {
               <h1 className="text-lg font-bold tracking-tight text-white">
                 {selectedLeague?.name ?? "European Football"}
               </h1>
-              <p className="text-xs text-[#A3ACB5]">
+              <p className="text-xs text-fog">
                 {isCurrentlyLive
                   ? `Matchday ${activeLiveMd} in progress. Real-time dynamic ledger settlement.`
                   : `Next automated kickoff in ${formatCountdown(secondsUntilKickoff)}.`}
@@ -339,29 +339,29 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Right: Bet365 Match Clock Module */}
-          <div className="flex shrink-0 items-center gap-3 rounded bg-[#16181B] px-3.5 py-2 border border-[#2B3036]">
+          {/* Right: VFL Match Clock Module */}
+          <div className="flex shrink-0 items-center gap-3 rounded bg-coal px-3.5 py-2 border border-line">
             {isCurrentlyLive ? (
               <div className="text-right">
-                <span className="block font-mono text-[10px] uppercase font-bold tracking-wider text-[#A3ACB5]">
+                <span className="block font-mono text-[10px] uppercase font-bold tracking-wider text-fog">
                   MATCH TIME
                 </span>
                 <span className="tnum font-mono text-xl font-black text-live">
                   {clockToMinute(activeLiveClock)}
                 </span>
-                <span className="block font-mono text-[10px] text-[#A3ACB5]">
+                <span className="block font-mono text-[10px] text-fog">
                   {formatCountdown(480 - activeLiveClock)} REMAINING
                 </span>
               </div>
             ) : (
               <div className="text-right">
-                <span className="block font-mono text-[10px] uppercase font-bold tracking-wider text-[#A3ACB5]">
+                <span className="block font-mono text-[10px] uppercase font-bold tracking-wider text-fog">
                   KICKOFF
                 </span>
-                <span className="tnum font-mono text-xl font-bold text-[#F9DC1C]">
+                <span className="tnum font-mono text-xl font-bold text-accent">
                   {formatCountdown(secondsUntilKickoff)}
                 </span>
-                <span className="block font-mono text-[10px] font-bold text-[#00E701]">
+                <span className="block font-mono text-[10px] font-bold text-win">
                   BETTING OPEN
                 </span>
               </div>
@@ -370,10 +370,10 @@ export default function HomePage() {
         </div>
 
         {/* Minimal Progress Bar */}
-        <div className="mt-3 h-1 w-full overflow-hidden rounded bg-[#16181B]">
+        <div className="mt-3 h-1 w-full overflow-hidden rounded bg-coal">
           <div
             className={`h-full transition-all duration-700 ${
-              isCurrentlyLive ? "bg-live" : "bg-[#027B5B]"
+              isCurrentlyLive ? "bg-live" : "bg-accent"
             }`}
             style={{
               width: `${isCurrentlyLive ? liveProgressPct : countdownProgressPct}%`,
@@ -397,8 +397,8 @@ export default function HomePage() {
               onClick={() => setSelectedMatchday(md)}
               className={`min-h-[32px] shrink-0 inline-flex items-center gap-1.5 rounded px-3 py-1 font-mono text-xs font-semibold transition-all ${
                 isSelected
-                  ? "bg-[#027B5B] text-white font-bold border-b-2 border-[#F9DC1C]"
-                  : "bg-[#1F2327] text-[#A3ACB5] hover:text-white hover:bg-[#2B3036]"
+                  ? "bg-graphite text-accent font-bold border-b-2 border-accent"
+                  : "bg-coal text-fog hover:text-white hover:bg-graphite"
               }`}
             >
               <span>MD {md}</span>
@@ -406,10 +406,10 @@ export default function HomePage() {
                 <span className="live-dot h-1.5 w-1.5 rounded-full bg-live" title="Live" />
               )}
               {status === "completed" && (
-                <span className="text-[10px] text-[#A3ACB5]">FT</span>
+                <span className="text-[10px] text-fog">FT</span>
               )}
               {status === "upcoming" && md === nextMdNumber && (
-                <span className="text-[10px] font-bold text-[#F9DC1C]">OPEN</span>
+                <span className="text-[10px] font-bold text-accent">OPEN</span>
               )}
             </button>
           );
@@ -419,8 +419,8 @@ export default function HomePage() {
           onClick={() => setSelectedMatchday("all")}
           className={`min-h-[32px] shrink-0 rounded px-3 py-1 font-mono text-xs font-semibold transition-all ${
             selectedMatchday === "all"
-              ? "bg-[#027B5B] text-white font-bold border-b-2 border-[#F9DC1C]"
-              : "bg-[#1F2327] text-[#A3ACB5] hover:text-white hover:bg-[#2B3036]"
+              ? "bg-graphite text-accent font-bold border-b-2 border-accent"
+              : "bg-coal text-fog hover:text-white hover:bg-graphite"
           }`}
         >
           All
@@ -431,7 +431,7 @@ export default function HomePage() {
       <div className="b365-card p-3 space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1">
-            <span className="mr-1 font-mono text-[10px] uppercase font-bold tracking-wider text-[#F9DC1C]">
+            <span className="mr-1 font-mono text-[10px] uppercase font-bold tracking-wider text-accent">
               MARKETS:
             </span>
             {(
@@ -487,7 +487,7 @@ export default function HomePage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search club or team..."
-              className="w-full rounded border border-[#383E45] bg-[#16181B] px-3 py-1 text-xs text-white placeholder:text-[#A3ACB5]/60 focus:border-[#F9DC1C] focus:outline-none"
+              className="w-full rounded border border-line bg-graphite px-3 py-1 text-xs text-white placeholder:text-fog/60 focus:border-accent focus:outline-none"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -496,13 +496,13 @@ export default function HomePage() {
               onClick={() => setFavOnly((v) => !v)}
               className={`min-h-[28px] rounded border px-2.5 py-0.5 font-mono text-[11px] transition-colors ${
                 favOnly
-                  ? "border-[#F9DC1C] bg-[#F9DC1C] text-[#121212] font-bold"
-                  : "border-[#383E45] bg-[#16181B] text-[#A3ACB5] hover:text-white"
+                  ? "border-accent bg-accent text-ink font-bold shadow-sm"
+                  : "border-line bg-graphite text-fog hover:text-white"
               }`}
             >
               ★ Favourites ({favoriteClubs.length})
             </button>
-            <span className="font-mono text-[11px] text-[#A3ACB5]">
+            <span className="font-mono text-[11px] text-fog">
               27 Markets
             </span>
           </div>
@@ -515,13 +515,13 @@ export default function HomePage() {
       ) : (
         <div className="b365-card overflow-hidden">
           {/* Header Strip for Match List */}
-          <div className="hidden md:flex items-center justify-between bg-[#16181B] px-4 py-2 border-b border-[#2B3036] font-mono text-[11px] text-[#A3ACB5]">
+          <div className="hidden md:flex items-center justify-between bg-coal px-4 py-2 border-b border-line font-mono text-[11px] text-fog">
             <div className="w-20">TIME / MD</div>
             <div className="flex-1">MATCH</div>
             <div className="flex items-center gap-2 justify-end w-72">
-              <span className="flex-1 text-center font-bold text-[#F9DC1C]">1</span>
-              <span className="flex-1 text-center font-bold text-[#F9DC1C]">X</span>
-              <span className="flex-1 text-center font-bold text-[#F9DC1C]">2</span>
+              <span className="flex-1 text-center font-bold text-accent">1</span>
+              <span className="flex-1 text-center font-bold text-accent">X</span>
+              <span className="flex-1 text-center font-bold text-accent">2</span>
               <span className="w-16 text-center">MORE</span>
             </div>
           </div>
@@ -584,8 +584,8 @@ export default function HomePage() {
                           onClick={() => toggleFavoriteClub(fx.home.id)}
                           className={`text-xs transition-colors ${
                             favoriteClubs.includes(fx.home.id)
-                              ? "text-[#F9DC1C]"
-                              : "text-[#A3ACB5]/40 hover:text-white"
+                              ? "text-accent"
+                              : "text-fog/40 hover:text-white"
                           }`}
                           title="Pin club to favourites"
                         >
@@ -598,7 +598,7 @@ export default function HomePage() {
                         />
                         <Link
                           href={`/clubs/${fx.home.id}`}
-                          className="truncate text-xs font-semibold text-white hover:text-[#F9DC1C] transition-colors"
+                          className="truncate text-xs font-semibold text-white hover:text-accent transition-colors"
                         >
                           {fx.home.name}
                         </Link>
@@ -608,7 +608,7 @@ export default function HomePage() {
                           className={`tnum font-mono text-xs font-bold px-2 py-0.5 rounded min-w-[24px] text-center ${
                             isLive
                               ? "bg-live/25 text-live font-black"
-                              : "bg-[#16181B] text-white border border-[#2B3036]"
+                              : "bg-coal text-white border border-line"
                           }`}
                         >
                           {fx.homeGoals ?? 0}
@@ -623,8 +623,8 @@ export default function HomePage() {
                           onClick={() => toggleFavoriteClub(fx.away.id)}
                           className={`text-xs transition-colors ${
                             favoriteClubs.includes(fx.away.id)
-                              ? "text-[#F9DC1C]"
-                              : "text-[#A3ACB5]/40 hover:text-white"
+                              ? "text-accent"
+                              : "text-fog/40 hover:text-white"
                           }`}
                           title="Pin club to favourites"
                         >
@@ -637,7 +637,7 @@ export default function HomePage() {
                         />
                         <Link
                           href={`/clubs/${fx.away.id}`}
-                          className="truncate text-xs font-semibold text-white hover:text-[#F9DC1C] transition-colors"
+                          className="truncate text-xs font-semibold text-white hover:text-accent transition-colors"
                         >
                           {fx.away.name}
                         </Link>
@@ -657,7 +657,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Right Column: Bet365 Odds Selection Buttons */}
+                {/* Right Column: VFL Odds Selection Buttons */}
                 <div className="flex flex-wrap items-center gap-1.5 md:justify-end">
                   {displayedMarket ? (
                     <div className="grid flex-1 grid-cols-3 gap-1 sm:flex-initial sm:flex">
@@ -665,7 +665,8 @@ export default function HomePage() {
                         const selected = slip.some(
                           (s) => s.fixtureId === fx.id && s.oddsId === opt.oddsId,
                         );
-                        const disabled = !isUpcoming || opt.suspended;
+                        const isBettingOpen = isUpcoming || isLive;
+                        const disabled = !isBettingOpen || opt.suspended;
                         const movement = oddsMovementMap[opt.oddsId];
                         let tag = opt.label;
                         if (opt.outcome === "home" || opt.outcome === "ht_home") tag = "1";
@@ -705,9 +706,9 @@ export default function HomePage() {
                             }
                             className={`min-h-[38px] min-w-[70px] rounded px-2.5 py-1 transition-all text-xs font-mono flex items-center justify-between gap-2 ${
                               selected
-                                ? "bg-[#F9DC1C] border border-[#F9DC1C] text-[#121212] font-black"
+                                ? "bg-accent border border-accent text-ink font-black shadow-sm"
                                 : disabled
-                                  ? "bg-[#16181B]/50 border border-transparent text-[#A3ACB5]/30 cursor-not-allowed"
+                                  ? "bg-coal/40 border border-transparent text-fog/30 cursor-not-allowed"
                                   : movement === "up"
                                     ? "b365-odds-btn odds-flash-up"
                                     : movement === "down"
@@ -715,11 +716,11 @@ export default function HomePage() {
                                       : "b365-odds-btn"
                             }`}
                           >
-                            <span className={selected ? "text-[#121212]/80 font-bold text-[10px]" : "text-[#A3ACB5] text-[10px]"}>
+                            <span className={selected ? "text-ink font-bold text-[10px]" : "text-fog text-[10px]"}>
                               {tag}
                             </span>
                             <span className="flex items-center gap-0.5">
-                              <span className={`tnum font-bold ${selected ? "text-[#121212] font-black" : "b365-odds-value"}`}>
+                              <span className={`tnum font-bold ${selected ? "text-ink font-black" : "b365-odds-value"}`}>
                                 {opt.decimal.toFixed(2)}
                               </span>
                               {movement === "up" && (

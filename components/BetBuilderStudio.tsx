@@ -57,6 +57,8 @@ export function BetBuilderStudio({ fixture, odds, slip, onToggleSlip }: Props) {
   }, [slip, fixture.id, matchedOption]);
 
   const isUpcoming = fixture.status === "upcoming";
+  const isLive = fixture.status === "live";
+  const isBettingOpen = isUpcoming || isLive;
 
   return (
     <div className="rounded-card border border-accent/40 bg-coal p-4 shadow-xl">
@@ -193,7 +195,7 @@ export function BetBuilderStudio({ fixture, odds, slip, onToggleSlip }: Props) {
 
         <button
           type="button"
-          disabled={!matchedOption || !isUpcoming}
+          disabled={!matchedOption || !isBettingOpen}
           onClick={() => {
             if (!matchedOption) return;
             onToggleSlip({

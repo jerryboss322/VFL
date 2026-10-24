@@ -22,28 +22,37 @@ async def _get_or_create_fixture_odds(session: AsyncSession, fixture_id: str) ->
     )
     odds = result.scalar_one_or_none()
     if odds is not None:
-        # Auto-upgrade legacy 3-market snapshots to the full 27-market sportsbook suite
-        if len(odds.markets or []) == 3:
-            fx_res = await session.execute(
-                select(Fixture)
-                .where(Fixture.id == fixture_id)
-                .options(selectinload(Fixture.home_club), selectinload(Fixture.away_club))
+        # If match is currently live, generate/refresh dynamic in-play odds
+        fx_res = await session.execute(
+            select(Fixture)
+            .where(Fixture.id == fixture_id)
+            .options(selectinload(Fixture.home_club), selectinload(Fixture.away_club))
+        )
+        fx = fx_res.scalar_one_or_none()
+        if fx is not None and fx.status == "live":
+            new_ver = odds.version + 1
+            odds.markets = generate_fixture_markets(
+                fixture_id=fx.id,
+                home_name=fx.home_club.name if fx.home_club else "Home",
+                away_name=fx.away_club.name if fx.away_club else "Away",
+                home_attack=fx.home_club.attack_rating if fx.home_club else 1.0,
+                home_defense=fx.home_club.defense_rating if fx.home_club else 1.0,
+                away_attack=fx.away_club.attack_rating if fx.away_club else 1.0,
+                away_defense=fx.away_club.defense_rating if fx.away_club else 1.0,
+                version=new_ver,
+                suspended=False,
+                current_home_goals=fx.home_goals or 0,
+                current_away_goals=fx.away_goals or 0,
+                elapsed_seconds=fx.clock_seconds or 0,
+                is_live=True,
             )
-            fx = fx_res.scalar_one_or_none()
-            if fx is not None:
-                odds.markets = generate_fixture_markets(
-                    fixture_id=fx.id,
-                    home_name=fx.home_club.name if fx.home_club else "Home",
-                    away_name=fx.away_club.name if fx.away_club else "Away",
-                    home_attack=fx.home_club.attack_rating if fx.home_club else 1.0,
-                    home_defense=fx.home_club.defense_rating if fx.home_club else 1.0,
-                    away_attack=fx.away_club.attack_rating if fx.away_club else 1.0,
-                    away_defense=fx.away_club.defense_rating if fx.away_club else 1.0,
-                    version=odds.version,
-                    suspended=(fx.status != "upcoming"),
-                )
-                await session.commit()
-                await session.refresh(odds)
+            odds.version = new_ver
+            await session.commit()
+            await session.refresh(odds)
+        elif odds.markets and fx is not None and fx.status == "completed":
+            for m in odds.markets:
+                for o in m.get("options", []):
+                    o["suspended"] = True
         return odds
 
     fx_res = await session.execute(
@@ -55,6 +64,8 @@ async def _get_or_create_fixture_odds(session: AsyncSession, fixture_id: str) ->
     if fx is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Odds not found")
 
+    is_live = fx.status == "live"
+    is_completed = fx.status == "completed"
     markets = generate_fixture_markets(
         fixture_id=fx.id,
         home_name=fx.home_club.name if fx.home_club else "Home",
@@ -64,7 +75,11 @@ async def _get_or_create_fixture_odds(session: AsyncSession, fixture_id: str) ->
         away_attack=fx.away_club.attack_rating if fx.away_club else 1.0,
         away_defense=fx.away_club.defense_rating if fx.away_club else 1.0,
         version=1,
-        suspended=(fx.status != "upcoming"),
+        suspended=is_completed,
+        current_home_goals=fx.home_goals or 0,
+        current_away_goals=fx.away_goals or 0,
+        elapsed_seconds=fx.clock_seconds or 0,
+        is_live=is_live,
     )
     odds = OddsSnapshot(
         fixture_id=fx.id,

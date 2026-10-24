@@ -76,7 +76,6 @@ export default function LeagueTablePage() {
             <tr className="border-b border-line bg-graphite/60 font-mono text-[11px] uppercase text-fog">
               <th className="px-3 py-3 font-semibold">#</th>
               <th className="px-3 py-3 font-semibold">Club</th>
-              <th className="px-3 py-3 text-center font-semibold">ATT / DEF</th>
               <th className="px-3 py-3 text-right font-semibold">P</th>
               <th className="px-3 py-3 text-right font-semibold">W</th>
               <th className="px-3 py-3 text-right font-semibold">D</th>
@@ -124,10 +123,6 @@ export default function LeagueTablePage() {
                         {r.club.name}
                       </Link>
                     </div>
-                  </td>
-                  <td className="tnum px-3 py-3 text-center font-mono text-[11px] text-fog">
-                    {(r.club.attackRating ?? 1.0).toFixed(2)} /{" "}
-                    {(r.club.defenseRating ?? 1.0).toFixed(2)}
                   </td>
                   <td className="tnum px-3 py-3 text-right font-mono text-bone">
                     {r.played}

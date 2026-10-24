@@ -27,7 +27,7 @@ export function AudioToggle() {
       title={enabled ? "Sound FX: Active (Click to Mute)" : "Sound FX: Muted (Click to Enable)"}
       className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 font-mono text-[11px] font-bold transition-all ${
         enabled
-          ? "border-accent/40 bg-[#014D38] text-accent hover:bg-[#005A42]"
+          ? "border-accent/40 bg-brand-dark text-accent hover:bg-graphite"
           : "border-line bg-coal text-fog hover:text-bone"
       }`}
     >

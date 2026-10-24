@@ -72,6 +72,10 @@ def compute_expected_goals(
 
 
 def _prob_to_decimal_odds(prob: float, overround: float = OVERROUND) -> float:
+    if prob <= 0.0005:
+        return MAX_ODDS
+    if prob >= 0.98:
+        return MIN_ODDS
     adjusted = max(0.015, min(0.94, prob * overround))
     raw_odds = 1.0 / adjusted
     return round(max(MIN_ODDS, min(MAX_ODDS, raw_odds)), 2)
@@ -128,8 +132,8 @@ def compute_probability_explanation(
 
     factors: list[str] = [
         f"Home field advantage applies a +12% attacking tempo boost to {home_name}.",
-        f"{home_name} expected goals (xG): {lam_h:.2f} (ATT {home_attack:.2f} vs {away_name} DEF {away_defense:.2f}).",
-        f"{away_name} expected goals (xG): {lam_a:.2f} (ATT {away_attack:.2f} vs {home_name} DEF {home_defense:.2f}).",
+        f"{home_name} projected goals (xG): {lam_h:.2f} based on recent tactical form.",
+        f"{away_name} projected goals (xG): {lam_a:.2f} based on recent tactical form.",
         f"Bookmaker margin (overround): {(OVERROUND - 1.0) * 100:.1f}% applied across all 27 markets.",
     ]
 
@@ -169,54 +173,109 @@ def generate_fixture_markets(
     away_defense: float = 1.0,
     version: int = 1,
     suspended: bool = False,
+    current_home_goals: int = 0,
+    current_away_goals: int = 0,
+    elapsed_seconds: int = 0,
+    match_duration_seconds: int = 480,
+    is_live: bool = False,
 ) -> list[dict[str, Any]]:
     fid = str(fixture_id)
     lam_h, lam_a = compute_expected_goals(home_attack, home_defense, away_attack, away_defense)
 
-    # Half-specific Poisson rates
-    lam_h1 = lam_h * HALF_ONE_SHARE
-    lam_a1 = lam_a * HALF_ONE_SHARE
-    lam_h2 = lam_h * HALF_TWO_SHARE
-    lam_a2 = lam_a * HALF_TWO_SHARE
+    if is_live and elapsed_seconds > 0:
+        rem_fraction = max(0.01, min(1.0, (match_duration_seconds - elapsed_seconds) / float(match_duration_seconds)))
+        rem_lam_h = max(0.01, lam_h * rem_fraction)
+        rem_lam_a = max(0.01, lam_a * rem_fraction)
 
-    # Full-time 9x9 probability grid
-    ft_grid: dict[tuple[int, int], float] = {}
-    ft_norm = 0.0
-    for h in range(9):
-        ph = _poisson_pmf(h, lam_h)
-        for a in range(9):
-            pa = _poisson_pmf(a, lam_a)
-            p = ph * pa
-            ft_grid[(h, a)] = p
-            ft_norm += p
-    for k in ft_grid:
-        ft_grid[k] /= max(1e-9, ft_norm)
+        ft_grid: dict[tuple[int, int], float] = {}
+        ft_norm = 0.0
+        for fh in range(8):
+            ph = _poisson_pmf(fh, rem_lam_h)
+            for fa in range(8):
+                pa = _poisson_pmf(fa, rem_lam_a)
+                p = ph * pa
+                score = (current_home_goals + fh, current_away_goals + fa)
+                ft_grid[score] = ft_grid.get(score, 0.0) + p
+                ft_norm += p
+        for k in ft_grid:
+            ft_grid[k] /= max(1e-9, ft_norm)
 
-    # 1st-half 6x6 probability grid
-    h1_grid: dict[tuple[int, int], float] = {}
-    h1_norm = 0.0
-    for h in range(6):
-        ph = _poisson_pmf(h, lam_h1)
-        for a in range(6):
-            pa = _poisson_pmf(a, lam_a1)
-            p = ph * pa
-            h1_grid[(h, a)] = p
-            h1_norm += p
-    for k in h1_grid:
-        h1_grid[k] /= max(1e-9, h1_norm)
+        half_boundary = match_duration_seconds // 2
+        h1_grid: dict[tuple[int, int], float] = {}
+        if elapsed_seconds >= half_boundary:
+            h1_grid[(current_home_goals, current_away_goals)] = 1.0
+        else:
+            h1_rem_fraction = max(0.01, (half_boundary - elapsed_seconds) / float(half_boundary))
+            h1_lam_h = max(0.01, lam_h * HALF_ONE_SHARE * h1_rem_fraction)
+            h1_lam_a = max(0.01, lam_a * HALF_ONE_SHARE * h1_rem_fraction)
+            h1_norm = 0.0
+            for fh in range(6):
+                ph = _poisson_pmf(fh, h1_lam_h)
+                for fa in range(6):
+                    pa = _poisson_pmf(fa, h1_lam_a)
+                    p = ph * pa
+                    sc = (current_home_goals + fh, current_away_goals + fa)
+                    h1_grid[sc] = h1_grid.get(sc, 0.0) + p
+                    h1_norm += p
+            for k in h1_grid:
+                h1_grid[k] /= max(1e-9, h1_norm)
 
-    # 2nd-half 6x6 probability grid
-    h2_grid: dict[tuple[int, int], float] = {}
-    h2_norm = 0.0
-    for h in range(6):
-        ph = _poisson_pmf(h, lam_h2)
-        for a in range(6):
-            pa = _poisson_pmf(a, lam_a2)
-            p = ph * pa
-            h2_grid[(h, a)] = p
-            h2_norm += p
-    for k in h2_grid:
-        h2_grid[k] /= max(1e-9, h2_norm)
+        h2_grid: dict[tuple[int, int], float] = {}
+        h2_norm = 0.0
+        for fh in range(6):
+            ph = _poisson_pmf(fh, rem_lam_h)
+            for fa in range(6):
+                pa = _poisson_pmf(fa, rem_lam_a)
+                p = ph * pa
+                h2_grid[(fh, fa)] = p
+                h2_norm += p
+        for k in h2_grid:
+            h2_grid[k] /= max(1e-9, h2_norm)
+    else:
+        # Half-specific Poisson rates
+        lam_h1 = lam_h * HALF_ONE_SHARE
+        lam_a1 = lam_a * HALF_ONE_SHARE
+        lam_h2 = lam_h * HALF_TWO_SHARE
+        lam_a2 = lam_a * HALF_TWO_SHARE
+
+        # Full-time 9x9 probability grid
+        ft_grid: dict[tuple[int, int], float] = {}
+        ft_norm = 0.0
+        for h in range(9):
+            ph = _poisson_pmf(h, lam_h)
+            for a in range(9):
+                pa = _poisson_pmf(a, lam_a)
+                p = ph * pa
+                ft_grid[(h, a)] = p
+                ft_norm += p
+        for k in ft_grid:
+            ft_grid[k] /= max(1e-9, ft_norm)
+
+        # 1st-half 6x6 probability grid
+        h1_grid: dict[tuple[int, int], float] = {}
+        h1_norm = 0.0
+        for h in range(6):
+            ph = _poisson_pmf(h, lam_h1)
+            for a in range(6):
+                pa = _poisson_pmf(a, lam_a1)
+                p = ph * pa
+                h1_grid[(h, a)] = p
+                h1_norm += p
+        for k in h1_grid:
+            h1_grid[k] /= max(1e-9, h1_norm)
+
+        # 2nd-half 6x6 probability grid
+        h2_grid: dict[tuple[int, int], float] = {}
+        h2_norm = 0.0
+        for h in range(6):
+            ph = _poisson_pmf(h, lam_h2)
+            for a in range(6):
+                pa = _poisson_pmf(a, lam_a2)
+                p = ph * pa
+                h2_grid[(h, a)] = p
+                h2_norm += p
+        for k in h2_grid:
+            h2_grid[k] /= max(1e-9, h2_norm)
 
     # Aggregate FT probabilities
     p_home = sum(p for (h, a), p in ft_grid.items() if h > a)
@@ -262,6 +321,7 @@ def generate_fixture_markets(
     p_first_away = p_any_goal * away_arrival_share
 
     def _opt(odds_id: str, outcome: str, label: str, prob: float, overround: float = OVERROUND) -> dict[str, Any]:
+        opt_suspended = suspended or (prob <= 0.001 and is_live)
         dec = _prob_to_decimal_odds(prob, overround)
         return {
             "odds_id": odds_id,
@@ -270,7 +330,7 @@ def generate_fixture_markets(
             "outcome": outcome,
             "label": label,
             "decimal": dec,
-            "suspended": suspended,
+            "suspended": opt_suspended,
         }
 
     # Helper for 3-way handicap (line applied to home: e.g. line = -1 means Home -1, Tie -1, Away +1)

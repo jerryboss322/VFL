@@ -5,21 +5,22 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#121212",        // Bet365 Deep Charcoal Ground
-        coal: "#1F2327",       // Bet365 Card / Section Surface
-        graphite: "#292E33",   // Surface border / divider
-        line: "#383E44",       // Interactive element border
-        fog: "#A3ACB5",        // Muted Slate Text
-        bone: "#FFFFFF",       // Crisp High-Contrast Pure White
-        brand: "#027B5B",      // Iconic Bet365 Deep Forest Green
-        "brand-dark": "#0B3E2F",// In-play section header green
-        accent: "#F9DC1C",     // Bet365 Signature Sundance Yellow
-        "accent-gold": "#FFDF00", // High-visibility odds yellow
-        peach: "#F9DC1C",      // Legacy highlight mapped to signature accent
-        "peach-dim": "#2B2816",// Muted gold background
-        live: "#FE2247",       // Live In-Play Indicator
-        win: "#00E701",        // Winning ledger green
-        loss: "#ED4245",
+        ink: "#0B0E14",        // VFL Deep Midnight Ground
+        coal: "#131822",       // VFL Card / Section Surface
+        graphite: "#1A2230",   // Surface border / elevated card
+        line: "#253144",       // Interactive element border
+        fog: "#94A3B8",        // Muted Slate Text
+        bone: "#F8FAFC",       // Crisp High-Contrast Pure White
+        brand: "#00E599",      // VFL Signature Electric Mint
+        "brand-dark": "#08281F",// Deep Emerald Glow
+        accent: "#00E599",     // VFL Signature Electric Mint Accent
+        "accent-cyan": "#00D8F6", // VFL Secondary Cyan
+        "accent-gold": "#FFB800", // High-visibility Solar Highlight
+        peach: "#00E599",      // Mapped to VFL Electric Mint
+        "peach-dim": "#09281E",// Muted mint background
+        live: "#FF3366",       // Live In-Play Neon Crimson
+        win: "#00E599",        // Winning ledger mint
+        loss: "#F43F5E",
       },
       borderRadius: {
         control: "6px",

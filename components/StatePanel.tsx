@@ -22,7 +22,7 @@ export function StatePanel({ tone, title, detail, action }: Props) {
     >
       <div className="mb-3 shrink-0 sm:mb-0 sm:mt-0.5">
         {isLoading && (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#014D38] text-accent">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-dark text-accent border border-accent/20">
             <svg
               className="h-5 w-5 animate-spin"
               xmlns="http://www.w3.org/2000/svg"

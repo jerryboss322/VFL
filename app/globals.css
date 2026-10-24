@@ -9,14 +9,14 @@
   }
 
   body {
-    @apply bg-[#121212] text-bone font-sans antialiased selection:bg-brand selection:text-white;
+    @apply bg-ink text-bone font-sans antialiased selection:bg-brand selection:text-ink;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    background-color: #121212;
+    background-color: #0B0E14;
   }
 }
 
 :focus-visible {
-  outline: 2px solid #F9DC1C;
+  outline: 2px solid #00E599;
   outline-offset: 2px;
 }
 
@@ -25,69 +25,69 @@
   font-feature-settings: "tnum" 1, "zero" 1;
 }
 
-/* Bet365 Container & Header styling */
+/* VFL Surface, Container & Header styling */
 .b365-header {
-  background-color: #027B5B;
-  border-bottom: 2px solid #005A42;
+  background: linear-gradient(180deg, #101622 0%, #0C101A 100%);
+  border-bottom: 1px solid rgba(0, 229, 153, 0.25);
 }
 
 .b365-subnav {
-  background-color: #0B3E2F;
-  border-bottom: 1px solid #144E3C;
+  background-color: #0E1420;
+  border-bottom: 1px solid #1E2838;
 }
 
 .b365-card {
-  background-color: #1F2327;
-  border: 1px solid #2B3036;
-  border-radius: 4px;
+  background-color: #131822;
+  border: 1px solid #202A3B;
+  border-radius: 8px;
 }
 
 .b365-row {
-  background-color: #1F2327;
-  border-bottom: 1px solid #2B3036;
+  background-color: #131822;
+  border-bottom: 1px solid #1C2433;
   transition: background-color 0.12s ease;
 }
 
 .b365-row:hover {
-  background-color: #262B30;
+  background-color: #1A2230;
 }
 
-/* Bet365 High-Density Odds Button */
+/* VFL High-Density Odds Button */
 .b365-odds-btn {
-  background-color: #2B3036;
-  border: 1px solid #383E45;
-  color: #FFFFFF;
-  border-radius: 3px;
+  background-color: #18202D;
+  border: 1px solid #263347;
+  color: #F8FAFC;
+  border-radius: 5px;
   transition: all 0.1s ease;
 }
 
 .b365-odds-btn:hover:not(:disabled) {
-  background-color: #383E45;
-  border-color: #4D555E;
+  background-color: #222C3E;
+  border-color: #00E599;
 }
 
 .b365-odds-btn.selected {
-  background-color: #F9DC1C;
-  border-color: #F9DC1C;
-  color: #121212;
+  background-color: #00E599;
+  border-color: #00E599;
+  color: #0B0E14;
 }
 
 .b365-odds-value {
-  color: #FFDF00;
+  color: #00E599;
   font-weight: 700;
 }
 
 .b365-odds-btn.selected .b365-odds-value {
-  color: #121212;
-  font-weight: 800;
+  color: #0B0E14;
+  font-weight: 900;
 }
 
-/* Live Odds Movement Flash Animations (Betfair exchange style) */
+/* Live Odds Movement Flash Animations (VFL Exchange style) */
 @keyframes oddsFlashUp {
   0% {
-    background-color: rgba(0, 231, 1, 0.3);
-    border-color: #00E701;
-    color: #00E701;
+    background-color: rgba(0, 229, 153, 0.3);
+    border-color: #00E599;
+    color: #00E599;
   }
   100% {
     background-color: inherit;
@@ -97,9 +97,9 @@
 
 @keyframes oddsFlashDown {
   0% {
-    background-color: rgba(237, 66, 69, 0.3);
-    border-color: #ED4245;
-    color: #ED4245;
+    background-color: rgba(244, 63, 94, 0.3);
+    border-color: #F43F5E;
+    color: #F43F5E;
   }
   100% {
     background-color: inherit;
@@ -109,20 +109,20 @@
 
 .odds-flash-up {
   animation: oddsFlashUp 1.8s ease-out;
-  border-color: #00E701 !important;
+  border-color: #00E599 !important;
 }
 
 .odds-flash-down {
   animation: oddsFlashDown 1.8s ease-out;
-  border-color: #ED4245 !important;
+  border-color: #F43F5E !important;
 }
 
 /* Score cell */
 .b365-score {
-  background-color: #16181B;
-  border: 1px solid #2B3036;
-  color: #FFDF00;
-  border-radius: 3px;
+  background-color: #10151E;
+  border: 1px solid #202A3B;
+  color: #00E599;
+  border-radius: 5px;
 }
 
 .b365-score-live {
@@ -144,7 +144,7 @@
   animation: livePulse 1.8s ease-in-out infinite;
 }
 
-/* Bet365 Dark scrollbar */
+/* VFL Dark scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

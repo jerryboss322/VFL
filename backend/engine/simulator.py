@@ -22,8 +22,9 @@ from app.models.club import Club
 from app.models.fixture import Fixture
 from app.models.match_event import MatchEvent
 from app.models.match_state import MatchState
+from app.models.odds import OddsSnapshot
 from app.services.betting import auto_settle_fixture_bets
-from app.services.odds_engine import compute_expected_goals
+from app.services.odds_engine import compute_expected_goals, generate_fixture_markets
 
 MATCH_DURATION_SECONDS = settings.MATCH_DURATION_SECONDS  # 480
 
@@ -339,6 +340,51 @@ class MatchEngine:
         fixture.home_goals = state.home_goals
         fixture.away_goals = state.away_goals
         fixture.clock_seconds = state.clock_seconds
+
+        # Update in-play live odds dynamically based on current score & clock progression
+        if state.status == "live":
+            odds_res = await self.session.execute(
+                select(OddsSnapshot)
+                .where(OddsSnapshot.fixture_id == fixture.id)
+                .where(OddsSnapshot.is_active == True)
+                .order_by(OddsSnapshot.version.desc())
+                .limit(1)
+            )
+            odds_snap = odds_res.scalar_one_or_none()
+            if odds_snap is not None:
+                new_ver = odds_snap.version + 1
+                home_club = await self.session.get(Club, fixture.home_club_id)
+                away_club = await self.session.get(Club, fixture.away_club_id)
+                odds_snap.markets = generate_fixture_markets(
+                    fixture_id=fixture.id,
+                    home_name=home_club.name if home_club else "Home",
+                    away_name=away_club.name if away_club else "Away",
+                    home_attack=home_club.attack_rating if home_club else 1.0,
+                    home_defense=home_club.defense_rating if home_club else 1.0,
+                    away_attack=away_club.attack_rating if away_club else 1.0,
+                    away_defense=away_club.defense_rating if away_club else 1.0,
+                    version=new_ver,
+                    suspended=False,
+                    current_home_goals=state.home_goals,
+                    current_away_goals=state.away_goals,
+                    elapsed_seconds=clock,
+                    match_duration_seconds=MATCH_DURATION_SECONDS,
+                    is_live=True,
+                )
+                odds_snap.version = new_ver
+        elif state.status == "completed":
+            odds_res = await self.session.execute(
+                select(OddsSnapshot)
+                .where(OddsSnapshot.fixture_id == fixture.id)
+                .where(OddsSnapshot.is_active == True)
+                .order_by(OddsSnapshot.version.desc())
+                .limit(1)
+            )
+            odds_snap = odds_res.scalar_one_or_none()
+            if odds_snap is not None and odds_snap.markets:
+                for m in odds_snap.markets:
+                    for o in m.get("options", []):
+                        o["suspended"] = True
 
         await self.session.commit()
         await self.session.refresh(state)

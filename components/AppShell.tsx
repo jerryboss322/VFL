@@ -45,24 +45,24 @@ function ShellInner({ children }: { children: ReactNode }) {
   } = useApp();
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#121212] pb-14 md:pb-0 text-bone">
+    <div className="flex min-h-screen flex-col bg-ink pb-14 md:pb-0 text-bone">
       {/* Top Telemetry Strip */}
-      <div className="border-b border-[#005A42] bg-[#014D38] px-4 py-1.5 text-[11px] text-white/90">
+      <div className="border-b border-line/60 bg-[#0A0E17] px-4 py-1.5 text-[11px] text-white/90">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-2 font-mono text-[11px] font-bold tracking-wider text-white">
-              <span className="live-dot h-2 w-2 rounded-full bg-[#00E701]" />
-              EUROPEAN VIRTUAL FOOTBALL NETWORK
+              <span className="live-dot h-2 w-2 rounded-full bg-accent" />
+              VFL • VIRTUAL FOOTBALL NETWORK
             </span>
             <span className="hidden sm:inline-block h-3 w-px bg-white/20" />
-            <span className="hidden sm:inline-block font-mono text-[11px] text-white/80">
-              6 Leagues • 116 Clubs
+            <span className="hidden sm:inline-block font-mono text-[11px] text-fog">
+              6 European Leagues • 116 Clubs
             </span>
           </div>
           <div className="flex items-center gap-2.5 font-mono text-[11px]">
-            <span className="text-white/80 hidden sm:inline">4m Pre-Match • 8m Live</span>
+            <span className="text-fog hidden sm:inline">4m Pre-Match • 8m Live</span>
             <AudioToggle />
-            <span className="rounded bg-[#005A42] border border-white/20 px-2 py-0.5 text-[10px] font-bold tracking-wider text-accent uppercase">
+            <span className="rounded bg-graphite border border-line px-2 py-0.5 text-[10px] font-bold tracking-wider text-accent uppercase">
               Simulated Ledger (XTS)
             </span>
           </div>
@@ -70,7 +70,7 @@ function ShellInner({ children }: { children: ReactNode }) {
       </div>
 
       {/* Main Navigation Header */}
-      <header role="banner" className="sticky top-0 z-30 b365-header shadow-md">
+      <header role="banner" className="sticky top-0 z-30 b365-header shadow-md backdrop-blur-md">
         <div className="mx-auto flex min-h-[58px] max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-2">
           <div className="flex items-center gap-4 lg:gap-8">
             {/* Mobile Hamburger Button */}
@@ -79,7 +79,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               onClick={() => setMobileMenuOpen((prev) => !prev)}
               aria-expanded={mobileMenuOpen}
               aria-label="Toggle navigation menu"
-              className="md:hidden flex h-9 w-9 items-center justify-center rounded border border-white/20 bg-[#014D38] text-white hover:bg-[#005A42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="md:hidden flex h-9 w-9 items-center justify-center rounded border border-line bg-graphite text-white hover:border-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {mobileMenuOpen ? (
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -93,13 +93,20 @@ function ShellInner({ children }: { children: ReactNode }) {
             </button>
 
             <Link href="/" className="group flex items-center gap-2.5">
-              <div className="flex items-center">
-                <span className="text-xl font-black italic tracking-tighter text-white">
-                  bet<span className="text-accent">365</span>
-                </span>
-                <span className="ml-2 rounded bg-[#014D38] px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-accent border border-accent/30">
-                  VFL
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center rounded-lg bg-gradient-to-br from-accent to-[#00D8F6] px-2.5 py-1 shadow-md shadow-accent/20">
+                  <span className="font-mono text-base font-black tracking-tight text-ink">
+                    VFL
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-black uppercase tracking-wider text-white leading-none">
+                    Virtual Football
+                  </span>
+                  <span className="text-[10px] font-medium tracking-tight text-fog leading-none mt-0.5">
+                    Sportsbook & Exchange
+                  </span>
+                </div>
               </div>
             </Link>
 
@@ -115,13 +122,13 @@ function ShellInner({ children }: { children: ReactNode }) {
                       aria-current={active ? "page" : undefined}
                       className={`min-h-[34px] inline-flex items-center gap-2 rounded px-3 py-1 text-xs font-semibold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                         active
-                          ? "bg-[#014D38] text-white border-b-2 border-accent font-bold"
-                          : "text-white/80 hover:text-white hover:bg-[#005A42]/60"
+                          ? "bg-graphite text-accent border-b-2 border-accent font-bold"
+                          : "text-fog hover:text-white hover:bg-graphite/40"
                       }`}
                     >
                       <span>{n.label}</span>
                       {n.href === "/bets" && openBets.length > 0 && (
-                        <span className="tnum rounded bg-accent text-[#121212] px-1.5 py-0.2 font-mono text-[10px] font-black">
+                        <span className="tnum rounded bg-accent text-ink px-1.5 py-0.2 font-mono text-[10px] font-black">
                           {openBets.length}
                         </span>
                       )}
@@ -135,8 +142,8 @@ function ShellInner({ children }: { children: ReactNode }) {
                   aria-current={pathname?.startsWith("/admin") ? "page" : undefined}
                   className={`min-h-[34px] inline-flex items-center gap-1.5 rounded border px-3 py-1 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     pathname?.startsWith("/admin")
-                      ? "border-accent bg-[#014D38] text-accent"
-                      : "border-white/20 text-white hover:bg-[#005A42]"
+                      ? "border-accent bg-graphite text-accent"
+                      : "border-line text-white hover:bg-graphite/50"
                   }`}
                 >
                   <span className="live-dot h-1.5 w-1.5 rounded-full bg-accent" />
@@ -152,7 +159,7 @@ function ShellInner({ children }: { children: ReactNode }) {
                 {user.isAdmin ? (
                   <Link
                     href="/admin"
-                    className="flex items-center gap-2 rounded border border-accent/50 bg-[#014D38] px-3 py-1.5 font-mono text-xs font-bold text-accent transition-colors hover:bg-[#005A42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className="flex items-center gap-2 rounded border border-accent/50 bg-graphite px-3 py-1.5 font-mono text-xs font-bold text-accent transition-colors hover:bg-graphite/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     <span className="live-dot h-2 w-2 rounded-full bg-accent" />
                     <span>MONITORING ONLY</span>
@@ -160,17 +167,17 @@ function ShellInner({ children }: { children: ReactNode }) {
                 ) : (
                   <Link
                     href="/wallet"
-                    className="flex items-center gap-3 rounded border border-white/20 bg-[#014D38] px-3.5 py-1.5 text-xs transition-colors hover:bg-[#005A42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className="flex items-center gap-3 rounded border border-line bg-graphite/60 px-3.5 py-1.5 text-xs transition-colors hover:border-accent/40 hover:bg-graphite focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     <div className="flex flex-col">
-                      <span className="text-[10px] uppercase font-mono tracking-wider text-white/70">Balance</span>
+                      <span className="text-[10px] uppercase font-mono tracking-wider text-fog">Balance</span>
                       <span className="tnum font-mono text-xs font-bold text-accent">
                         {formatMinor(wallet.availableMinor, wallet.currency)}
                       </span>
                     </div>
                     {wallet.reservedMinor > 0 && (
-                      <div className="flex flex-col border-l border-white/20 pl-3">
-                        <span className="text-[10px] uppercase font-mono tracking-wider text-white/70">In Play</span>
+                      <div className="flex flex-col border-l border-line pl-3">
+                        <span className="text-[10px] uppercase font-mono tracking-wider text-fog">In Play</span>
                         <span className="tnum font-mono text-xs font-bold text-white">
                           {formatMinor(wallet.reservedMinor, wallet.currency)}
                         </span>
@@ -246,8 +253,8 @@ function ShellInner({ children }: { children: ReactNode }) {
                     onClick={() => setSelectedLeagueId(lg.id)}
                     className={`shrink-0 inline-flex items-center gap-2 rounded px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                       isSelected
-                        ? "bg-[#027B5B] text-white border-b-2 border-accent font-bold"
-                        : "text-white/80 hover:text-white hover:bg-white/10 border-b-2 border-transparent"
+                        ? "bg-graphite text-accent border-b-2 border-accent font-bold shadow-sm"
+                        : "text-fog hover:text-white hover:bg-graphite/40 border-b-2 border-transparent"
                     }`}
                   >
                     {leagueLogo ? (
@@ -277,7 +284,7 @@ function ShellInner({ children }: { children: ReactNode }) {
         {mobileMenuOpen && (
           <nav
             aria-label="Mobile Navigation Drawer"
-            className="md:hidden border-t border-[#005A42] bg-[#014D38] px-4 py-3 shadow-lg"
+            className="md:hidden border-t border-line bg-coal px-4 py-3 shadow-lg"
           >
             <div className="flex flex-col gap-1">
               {NAV.filter((n) => !user?.isAdmin || (n.href !== "/bets" && n.href !== "/wallet")).map(
@@ -291,7 +298,7 @@ function ShellInner({ children }: { children: ReactNode }) {
                       onClick={() => setMobileMenuOpen(false)}
                       aria-current={active ? "page" : undefined}
                       className={`flex items-center justify-between rounded px-3 py-2 text-xs font-semibold ${
-                        active ? "bg-[#027B5B] text-accent font-bold" : "text-white/90 hover:bg-[#005A42]"
+                        active ? "bg-graphite text-accent font-bold" : "text-bone/90 hover:bg-graphite/50"
                       }`}
                     >
                       <span>{n.label}</span>
@@ -308,7 +315,7 @@ function ShellInner({ children }: { children: ReactNode }) {
                 <Link
                   href="/admin"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between rounded px-3 py-2 text-xs font-bold text-accent hover:bg-[#005A42]"
+                  className="flex items-center justify-between rounded px-3 py-2 text-xs font-bold text-accent hover:bg-graphite/50"
                 >
                   <span>Admin Operations Console</span>
                   <span className="live-dot h-2 w-2 rounded-full bg-accent" />

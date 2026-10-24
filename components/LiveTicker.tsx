@@ -45,7 +45,7 @@ export function LiveTicker() {
   return (
     <aside
       aria-label="Live Match Ticker"
-      className="border-b border-[#005A42] bg-[#0B3E2F]/90 px-4 py-1 text-xs backdrop-blur-sm"
+      className="border-b border-line/60 bg-[#0E1522]/95 px-4 py-1 text-xs backdrop-blur-sm"
     >
       <div className="mx-auto flex max-w-7xl items-center gap-3 overflow-hidden">
         <div className="flex shrink-0 items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-accent">

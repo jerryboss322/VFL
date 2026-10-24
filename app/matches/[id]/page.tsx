@@ -282,7 +282,7 @@ export default function MatchDetailPage() {
         </span>
       </div>
 
-      {/* Bet365 Broadcast Scoreboard Card */}
+      {/* VFL Broadcast Scoreboard Card */}
       <div
         className="b365-card p-5"
         aria-live="polite"
@@ -293,8 +293,8 @@ export default function MatchDetailPage() {
               isLive
                 ? "b365-score-live"
                 : isUpcoming
-                  ? "bg-[#0B3E2F] text-[#F9DC1C] border border-[#F9DC1C]/30"
-                  : "bg-[#16181B] text-[#A3ACB5] border border-[#2B3036]"
+                  ? "bg-brand-dark text-accent border border-accent/30"
+                  : "bg-coal text-fog border border-line"
             }`}
           >
             {isLive && <span className="live-dot h-1.5 w-1.5 rounded-full bg-live" />}
@@ -304,17 +304,17 @@ export default function MatchDetailPage() {
           </span>
 
           {isUpcoming && (
-            <span className="tnum rounded border border-[#2B3036] bg-[#16181B] px-3 py-1 font-bold text-[#F9DC1C]">
+            <span className="tnum rounded border border-line bg-coal px-3 py-1 font-bold text-accent">
               KICKOFF IN {formatCountdown(secondsToKickoff)}
             </span>
           )}
           {isLive && (
-            <span className="tnum text-[#A3ACB5] font-medium">
+            <span className="tnum text-fog font-medium">
               ELAPSED: {fixture.clockSeconds ?? 0}s / 480s
             </span>
           )}
           {isCompleted && (
-            <span className="text-[#00E701] font-semibold">OFFICIAL RESULT • MARKETS SETTLED</span>
+            <span className="text-win font-semibold">OFFICIAL RESULT • MARKETS SETTLED</span>
           )}
         </div>
 
@@ -328,27 +328,26 @@ export default function MatchDetailPage() {
             />
             <Link
               href={`/clubs/${fixture.home.id}`}
-              className="mt-2.5 text-base font-bold text-white transition-colors hover:text-[#F9DC1C] sm:text-lg"
+              className="mt-2.5 text-base font-bold text-white transition-colors hover:text-accent sm:text-lg"
             >
               {fixture.home.name}
             </Link>
-            <span className="mt-1 font-mono text-[11px] text-[#A3ACB5]">
-              HOME • ATT {(fixture.home.attackRating ?? 1.0).toFixed(2)} / DEF{" "}
-              {(fixture.home.defenseRating ?? 1.0).toFixed(2)}
+            <span className="mt-1 font-mono text-[11px] font-semibold text-fog">
+              HOME SQUAD • {fixture.home.shortName}
             </span>
           </div>
 
           {/* Center Score / Countdown Board */}
           <div className="flex flex-col items-center justify-center">
             {isUpcoming ? (
-              <div className="rounded border border-[#2B3036] bg-[#16181B] px-6 py-3.5">
-                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-[#A3ACB5]">
+              <div className="rounded border border-line bg-coal px-6 py-3.5">
+                <span className="block font-mono text-[10px] uppercase font-bold tracking-widest text-fog">
                   STARTS IN
                 </span>
-                <span className="tnum font-mono text-3xl font-bold text-[#F9DC1C] sm:text-4xl">
+                <span className="tnum font-mono text-3xl font-bold text-accent sm:text-4xl">
                   {formatCountdown(secondsToKickoff)}
                 </span>
-                <span className="mt-1 block font-mono text-[10px] font-bold text-[#00E701]">
+                <span className="mt-1 block font-mono text-[10px] font-bold text-win">
                   ● TRADING ACTIVE
                 </span>
               </div>
@@ -384,9 +383,8 @@ export default function MatchDetailPage() {
             >
               {fixture.away.name}
             </Link>
-            <span className="mt-1 font-mono text-[11px] text-fog">
-              AWAY • ATT {(fixture.away.attackRating ?? 1.0).toFixed(2)} / DEF{" "}
-              {(fixture.away.defenseRating ?? 1.0).toFixed(2)}
+            <span className="mt-1 font-mono text-[11px] font-semibold text-fog">
+              AWAY SQUAD • {fixture.away.shortName}
             </span>
           </div>
         </div>
@@ -782,7 +780,8 @@ export default function MatchDetailPage() {
                       const selected = slip.some(
                         (s) => s.fixtureId === fixture.id && s.oddsId === opt.oddsId,
                       );
-                      const disabled = !isUpcoming || opt.suspended;
+                      const isBettingOpen = isUpcoming || isLive;
+                      const disabled = !isBettingOpen || opt.suspended;
                       const movement = oddsMovementMap[opt.oddsId];
                       return (
                         <button
