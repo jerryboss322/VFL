@@ -3178,3 +3178,16 @@ async def retry_all_stuck_settlements(
     )
     await session.commit()
     return {"settledTicketsCount": total_settled}
+
+
+@router.post("/universe/restart")
+async def restart_universe(
+    current_user=Depends(get_current_admin_user),
+):
+    """Cleanly restart all 6 leagues to Season 1 Matchday 1 with infinite season continuity."""
+    from seed import seed
+    await seed(force_reset=True)
+    return {
+        "ok": True,
+        "message": "All 6 leagues restarted to Season 1 Matchday 1. Pre-match countdown set to 4 minutes.",
+    }

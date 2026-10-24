@@ -917,11 +917,16 @@ export default function MatchDetailPage() {
                 Math.max(1, Math.min(90, Math.round((ev.minute / 480) * 90)));
               const isGoal = ev.type === "goal";
               const isCard = ev.type === "card";
+              const isRed = Boolean(ev.payload?.is_red);
               return (
                 <li
                   key={ev.id || idx}
                   className={`flex items-center gap-4 px-4 py-3 text-xs ${
-                    isGoal ? "bg-win/5" : ""
+                    isGoal
+                      ? "bg-win/5"
+                      : isRed
+                        ? "bg-loss/5"
+                        : ""
                   }`}
                 >
                   <span className="tnum w-10 font-mono font-bold text-fog">
@@ -931,14 +936,28 @@ export default function MatchDetailPage() {
                     className={`w-24 shrink-0 rounded-control px-2 py-0.5 text-center font-mono text-[10px] font-bold uppercase ${
                       isGoal
                         ? "border border-win/40 bg-win/20 text-win"
-                        : isCard
-                          ? "border border-peach/40 bg-peach-dim text-peach"
-                          : "bg-graphite text-fog"
+                        : isRed
+                          ? "border border-loss/60 bg-loss/20 text-loss font-black"
+                          : isCard
+                            ? "border border-amber-400/50 bg-amber-400/15 text-amber-300"
+                            : "bg-graphite text-fog"
                     }`}
                   >
-                    {ev.type.replace("_", " ")}
+                    {isRed
+                      ? "RED CARD"
+                      : isCard
+                        ? "YELLOW CARD"
+                        : ev.type.replace("_", " ")}
                   </span>
-                  <span className={isGoal ? "font-semibold text-bone" : "text-bone"}>
+                  <span
+                    className={
+                      isGoal
+                        ? "font-semibold text-bone"
+                        : isRed
+                          ? "font-semibold text-loss"
+                          : "text-bone"
+                    }
+                  >
                     {ev.text}
                   </span>
                 </li>

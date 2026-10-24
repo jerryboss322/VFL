@@ -48,19 +48,40 @@ _CHANCE_COMMENTARY = [
     "{club} wins a dangerous corner after sustained pressure.",
     "Curling effort from {club} clips the outside of the post!",
     "{club} breaks through the midfield line and tests the goalkeeper.",
+    "WOODWORK! Stunning effort from {club} rattles the crossbar!",
+    "Sensational reflex save! Goalkeeper denies {club} from point-blank range!",
+    "Vital goal-line clearance saves {club} from conceding!",
+    "Glancing header from {club} flashes inches wide of the upright!",
+    "Goalkeeper off their line to bravely smother the chance at the feet of {club}!",
 ]
 
 _GOAL_COMMENTARY = [
     "GOAL! {club} finishes clinically into the bottom corner!",
     "GOAL! Brilliant header from {club} off a whipped cross!",
     "GOAL! {club} slots it home after a rapid counter-attack!",
-    "GOAL! Unstoppable strike from the edge of the area by {club}!",
+    "GOAL! Unstoppable 25-yard screamer into the top corner from {club}!",
+    "GOAL! {club} converts from the penalty spot under immense pressure!",
+    "GOAL! Stunning volley off the underside of the crossbar for {club}!",
+    "GOAL! Poacher's instinct from {club} pouncing on a loose ball in the box!",
 ]
 
-_CARD_COMMENTARY = [
+_LATE_GOAL_COMMENTARY = [
+    "DRAMA! Late equalizer in the dying seconds for {club}! Absolute pandemonium!",
+    "LAST-GASP WINNER! {club} snatches victory in stoppage time! Incredible scenes!",
+    "STUNNER! Heartbreaking late goal from {club} in the 90th minute!",
+]
+
+_YELLOW_CARD_COMMENTARY = [
     "Yellow card shown to {club} for a tactical foul in midfield.",
-    "Booking for {club} after a late challenge on the wing.",
+    "Booking for {club} after a late challenge breaking up a counter-attack.",
     "Referee cautions {club} for breaking up a promising attack.",
+    "Yellow card for {club} for persistent simulation in the penalty area.",
+]
+
+_RED_CARD_COMMENTARY = [
+    "RED CARD! Reckless two-footed lunge — straight red shown to {club}!",
+    "SECOND YELLOW! {club} player receives marching orders! Down to 10 men!",
+    "RED CARD! Professional foul denying an obvious goalscoring chance — {club} reduced to 10!",
 ]
 
 # 15 timeline slots across the 480-second match (kickoff at 0, early action at 3 & 7,
@@ -85,7 +106,8 @@ def _generate_match_events(
     away_club: Club,
     rng: random.Random,
 ) -> list[dict[str, Any]]:
-    """Generate a deterministic, ratings-weighted 15-event sequence for a match with authentic Poisson goal distribution."""
+    """Generate a deterministic sequence with authentic unpredictability: matchday form swings,
+    underdog upset surges, red cards, dramatic comebacks, and late stoppage-time winners."""
     events: list[dict[str, Any]] = []
 
     h_att = getattr(home_club, "attack_rating", 1.0) or 1.0
@@ -93,21 +115,68 @@ def _generate_match_events(
     a_att = getattr(away_club, "attack_rating", 1.0) or 1.0
     a_def = getattr(away_club, "defense_rating", 1.0) or 1.0
 
-    lam_home, lam_away = compute_expected_goals(h_att, h_def, a_att, a_def)
-    total_lam = lam_home + lam_away
-    home_prob = lam_home / total_lam if total_lam > 0 else 0.53
+    # 1. Stochastic Matchday Form Volatility (tactical variance, condition, match adrenaline)
+    h_form = rng.gauss(1.0, 0.20)
+    a_form = rng.gauss(1.0, 0.20)
 
-    # Sample realistic goal counts directly from the Poisson distribution
-    home_goals_target = min(5, _sample_poisson(lam_home, rng))
-    away_goals_target = min(5, _sample_poisson(lam_away, rng))
+    # 2. Giant-Killing & Underdog Upset Surge Factor:
+    # If one club is a substantial favorite, the underdog has a fierce upset surge chance (~22%)
+    # while the favorite risks complacency or squad fatigue (~18%).
+    rating_diff = (h_att + h_def) - (a_att + a_def)
+    if rating_diff > 0.25:
+        if rng.random() < 0.22:
+            a_form *= 1.30  # Inspired underdog away surge
+        if rng.random() < 0.18:
+            h_form *= 0.82  # Favorite home complacency
+    elif rating_diff < -0.25:
+        if rng.random() < 0.25:
+            h_form *= 1.32  # Inspired underdog home surge with crowd roar
+        if rng.random() < 0.18:
+            a_form *= 0.82  # Favorite away complacency
+
+    h_form = max(0.60, min(1.50, h_form))
+    a_form = max(0.60, min(1.50, a_form))
+
+    eff_h_att = h_att * h_form
+    eff_h_def = h_def * h_form
+    eff_a_att = a_att * a_form
+    eff_a_def = a_def * a_form
+
+    # 3. Baseline Expected Goals derived from effective form
+    lam_home, lam_away = compute_expected_goals(eff_h_att, eff_h_def, eff_a_att, eff_a_def)
+    # Ensure realistic goal scoring (3+ goals is exciting, not trivially common)
+    lam_home = min(2.10, max(0.25, lam_home * 0.90))
+    lam_away = min(1.95, max(0.20, lam_away * 0.90))
+
+    # Sample initial target goals
+    home_goals_target = min(4, _sample_poisson(lam_home, rng))
+    away_goals_target = min(4, _sample_poisson(lam_away, rng))
+
+    # 4. Realistic Red Card Dynamics (~8% match probability)
+    has_red_card = rng.random() < 0.08
+    red_side: str | None = None
+    red_tick: int | None = None
+    if has_red_card:
+        candidate_ticks = [36, 72, 115, 160, 205, 285, 330, 375]
+        red_tick = rng.choice(candidate_ticks)
+        if lam_home > lam_away:
+            red_side = "away" if rng.random() < 0.60 else "home"
+        else:
+            red_side = "home" if rng.random() < 0.60 else "away"
+
+        # 10-man handicap: opposing team has 40% chance of a bonus goal
+        if red_side == "home" and away_goals_target < 4 and rng.random() < 0.40:
+            away_goals_target += 1
+        elif red_side == "away" and home_goals_target < 4 and rng.random() < 0.40:
+            home_goals_target += 1
 
     action_ticks = [t for t in _TIMELINE_SLOTS if t not in (0, 240, MATCH_DURATION_SECONDS)]
-    total_goals = min(len(action_ticks), home_goals_target + away_goals_target)
+    avail_goal_ticks = [t for t in action_ticks if t != red_tick]
 
-    # Randomly select which action slots will be goals across the match timeline
+    total_goals = min(len(avail_goal_ticks), home_goals_target + away_goals_target)
     goal_ticks: list[int] = []
     if total_goals > 0:
-        goal_ticks = rng.sample(action_ticks, total_goals)
+        goal_ticks = rng.sample(avail_goal_ticks, total_goals)
 
     rng.shuffle(goal_ticks)
     home_goal_ticks = set(goal_ticks[:home_goals_target])
@@ -164,31 +233,43 @@ def _generate_match_events(
             )
             continue
 
-        if tick in home_goal_ticks:
+        is_red = (tick == red_tick)
+        if is_red:
+            event_type = "card"
+            side = red_side
+            club = home_club if side == "home" else away_club
+            template = rng.choice(_RED_CARD_COMMENTARY)
+        elif tick in home_goal_ticks:
             event_type = "goal"
             side = "home"
             club = home_club
+            template = rng.choice(_LATE_GOAL_COMMENTARY) if tick >= 415 else rng.choice(_GOAL_COMMENTARY)
         elif tick in away_goal_ticks:
             event_type = "goal"
             side = "away"
             club = away_club
+            template = rng.choice(_LATE_GOAL_COMMENTARY) if tick >= 415 else rng.choice(_GOAL_COMMENTARY)
         else:
-            is_home = rng.random() < home_prob
+            # Check 10-man penalty if a red card was already issued
+            if has_red_card and red_tick and tick > red_tick:
+                # The team with 11 men dominates possession (~75%)
+                is_home = (red_side != "home") if rng.random() < 0.75 else (red_side == "home")
+            else:
+                prob = eff_h_att / (eff_h_att + eff_a_att) if (eff_h_att + eff_a_att) > 0 else 0.52
+                is_home = rng.random() < prob
+
             side = "home" if is_home else "away"
             club = home_club if is_home else away_club
-            # 22% yellow card chance, 78% tactical goal chance / keeper save
-            event_type = "card" if rng.random() < 0.22 else "chance"
+            # 20% yellow card chance, 80% goal chance / keeper save / woodwork
+            if rng.random() < 0.20:
+                event_type = "card"
+                template = rng.choice(_YELLOW_CARD_COMMENTARY)
+            else:
+                event_type = "chance"
+                template = rng.choice(_CHANCE_COMMENTARY)
 
         club_id = str(club.id)
         club_name = club.name
-
-        if event_type == "goal":
-            template = rng.choice(_GOAL_COMMENTARY)
-        elif event_type == "card":
-            template = rng.choice(_CARD_COMMENTARY)
-        else:
-            template = rng.choice(_CHANCE_COMMENTARY)
-
         text = template.format(club=club_name)
 
         events.append(
@@ -203,9 +284,12 @@ def _generate_match_events(
                     "side": side,
                     "club_id": club_id,
                     "display_minute": display_min,
+                    "is_red": is_red,
                 },
             }
         )
+
+    return events
 
     return events
 

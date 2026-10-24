@@ -188,8 +188,10 @@ async def _ensure_infinite_upcoming_fixtures(session, now: datetime, pre_match: 
             # Determine kickoff base timestamp for new matchdays
             if latest_fx and latest_fx.status == "upcoming":
                 base_time = _parse_iso(latest_fx.kickoff_at)
+                is_from_upcoming = True
             else:
                 base_time = now + timedelta(seconds=pre_match)
+                is_from_upcoming = False
 
             match_cycle_seconds = MATCH_DURATION_SECONDS + HALFTIME_BREAK_SECONDS + pre_match
 
@@ -212,7 +214,10 @@ async def _ensure_infinite_upcoming_fixtures(session, now: datetime, pre_match: 
 
                 booked_clubs = {f.home_club_id for f in existing_target} | {f.away_club_id for f in existing_target}
 
-                ko_time = base_time + timedelta(seconds=offset_idx * match_cycle_seconds)
+                if is_from_upcoming:
+                    ko_time = base_time + timedelta(seconds=offset_idx * match_cycle_seconds)
+                else:
+                    ko_time = base_time + timedelta(seconds=(offset_idx - 1) * match_cycle_seconds)
                 pairings = get_season_pairings(clubs, target_md)
                 for home, away in pairings:
                     if home.id in booked_clubs or away.id in booked_clubs:
@@ -314,8 +319,13 @@ async def run_simulation_tick() -> dict:
         live = [f for f in fixtures if f.status == "live"]
         upcoming = [f for f in fixtures if f.status == "upcoming"]
         if not live and upcoming:
-            next_md = min(f.matchday for f in upcoming)
-            md_fx = [f for f in upcoming if f.matchday == next_md]
+            earliest_fx = min(upcoming, key=lambda f: _parse_iso(f.kickoff_at))
+            next_md = earliest_fx.matchday
+            target_season_id = earliest_fx.season_id
+            md_fx = [
+                f for f in upcoming
+                if f.season_id == target_season_id and f.matchday == next_md
+            ]
             if now >= min(_parse_iso(f.kickoff_at) for f in md_fx):
                 for fx in md_fx:
                     state = await engine.initialize_match(fx, fx.home_club, fx.away_club)
@@ -355,14 +365,18 @@ async def run_simulation_tick() -> dict:
         if finished_at is not None and not any(f.status == "live" for f in live):
             remaining = [f for f in fixtures if f.status == "upcoming"]
             if remaining:
+                earliest_upcoming = min(remaining, key=lambda f: _parse_iso(f.kickoff_at))
+                next_md = earliest_upcoming.matchday
+                target_season_id = earliest_upcoming.season_id
                 base = max(finished_at, now - timedelta(seconds=pre_match))
-                next_md = min(f.matchday for f in remaining)
+                match_cycle_seconds = MATCH_DURATION_SECONDS + HALFTIME_BREAK_SECONDS + pre_match
                 for f in remaining:
-                    offset = f.matchday - next_md
-                    f.kickoff_at = (
-                        base
-                        + timedelta(seconds=pre_match + offset * (MATCH_DURATION_SECONDS + pre_match))
-                    ).isoformat()
+                    if f.season_id == target_season_id:
+                        offset = f.matchday - next_md
+                        f.kickoff_at = (
+                            base
+                            + timedelta(seconds=pre_match + offset * match_cycle_seconds)
+                        ).isoformat()
                 await session.commit()
 
     return {"advanced": advanced, "kickedOff": kicked_off}

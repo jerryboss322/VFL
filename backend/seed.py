@@ -19,6 +19,14 @@ from engine.simulator import MATCH_DURATION_SECONDS, _generate_match_events
 
 PRE_MATCH_COUNTDOWN_SECONDS = 240  # 4 minutes after previous matchday ends
 
+
+def _parse_iso(ts: str) -> datetime:
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return datetime.now(timezone.utc)
+
 LEAGUE_DEFINITIONS = [
     {
         "name": "English Premier League",
@@ -224,30 +232,37 @@ async def seed(force_reset: bool = False):
             )
             upcoming = fx_res.scalars().all()
             if upcoming:
-                next_md = min(f.matchday for f in upcoming)
+                earliest = min(upcoming, key=lambda f: _parse_iso(f.kickoff_at))
+                next_md = earliest.matchday
+                halftime_break = 10
+                match_cycle = MATCH_DURATION_SECONDS + halftime_break + PRE_MATCH_COUNTDOWN_SECONDS
                 for f in upcoming:
                     md_offset = f.matchday - next_md
                     ko = now + timedelta(
-                        seconds=PRE_MATCH_COUNTDOWN_SECONDS
-                        + md_offset * (MATCH_DURATION_SECONDS + PRE_MATCH_COUNTDOWN_SECONDS)
+                        seconds=PRE_MATCH_COUNTDOWN_SECONDS + md_offset * match_cycle
                     )
                     f.kickoff_at = ko.isoformat()
                 await session.commit()
                 print(f"Synchronized Matchday {next_md} kickoff across all 6 leagues to 4 minutes from now.")
             return
 
-        if existing_leagues:
+        if existing_leagues or force_reset:
             await session.execute(
                 text(
                     "TRUNCATE ledger_entries, bets, match_events, match_states, "
                     "odds_snapshots, fixtures, seasons, clubs, leagues CASCADE"
                 )
             )
+            # Reset reserved balances and ensure user balances
+            await session.execute(text("UPDATE wallets SET reserved_minor = 0 WHERE reserved_minor != 0"))
+            await session.execute(text("UPDATE wallets SET available_minor = 1000000 WHERE available_minor < 100000"))
             await session.commit()
 
         now = datetime.now(timezone.utc)
         total_clubs = 0
         total_fixtures = 0
+        halftime_break = 10
+        match_cycle = MATCH_DURATION_SECONDS + halftime_break + PRE_MATCH_COUNTDOWN_SECONDS
 
         for ldef in LEAGUE_DEFINITIONS:
             league = League(
@@ -260,8 +275,8 @@ async def seed(force_reset: bool = False):
 
             season = Season(
                 league_id=league.id,
-                name="2026/27 Season",
-                year=2026,
+                name="Season 1",
+                year=now.year,
                 is_active=True,
             )
             session.add(season)
@@ -281,27 +296,21 @@ async def seed(force_reset: bool = False):
             await session.flush()
             total_clubs += len(clubs)
 
-            rounds = _generate_round_robin_pairings(clubs, num_matchdays=6)
+            rounds = _generate_round_robin_pairings(clubs, num_matchdays=4)
 
             for md_idx, pairings in enumerate(rounds, start=1):
-                if md_idx == 1:
-                    kickoff = now - timedelta(minutes=8)
-                else:
-                    md_offset = md_idx - 2
-                    kickoff = now + timedelta(
-                        seconds=PRE_MATCH_COUNTDOWN_SECONDS
-                        + md_offset * (MATCH_DURATION_SECONDS + PRE_MATCH_COUNTDOWN_SECONDS)
-                    )
+                kickoff = now + timedelta(
+                    seconds=PRE_MATCH_COUNTDOWN_SECONDS + (md_idx - 1) * match_cycle
+                )
 
                 for home, away in pairings:
-                    is_md1 = md_idx == 1
                     fixture = Fixture(
                         season_id=season.id,
                         home_club_id=home.id,
                         away_club_id=away.id,
                         matchday=md_idx,
                         kickoff_at=kickoff.isoformat(),
-                        status="completed" if is_md1 else "upcoming",
+                        status="upcoming",
                     )
                     session.add(fixture)
                     await session.flush()
@@ -315,7 +324,7 @@ async def seed(force_reset: bool = False):
                         away_attack=away.attack_rating,
                         away_defense=away.defense_rating,
                         version=1,
-                        suspended=is_md1,
+                        suspended=False,
                     )
                     session.add(
                         OddsSnapshot(
@@ -325,62 +334,6 @@ async def seed(force_reset: bool = False):
                             is_active=True,
                         )
                     )
-
-                    if is_md1:
-                        rng = random.Random(str(fixture.id))
-                        events_data = _generate_match_events(str(fixture.id), home, away, rng)
-                        hg = sum(
-                            1
-                            for ev in events_data
-                            if ev["event_type"] == "goal"
-                            and (ev["payload"] or {}).get("side") == "home"
-                        )
-                        ag = sum(
-                            1
-                            for ev in events_data
-                            if ev["event_type"] == "goal"
-                            and (ev["payload"] or {}).get("side") == "away"
-                        )
-                        fixture.home_goals = hg
-                        fixture.away_goals = ag
-                        fixture.clock_seconds = MATCH_DURATION_SECONDS
-
-                        current_evs = []
-                        for ev in events_data:
-                            session.add(
-                                MatchEvent(
-                                    fixture_id=fixture.id,
-                                    event_seq=ev["event_seq"],
-                                    event_type=ev["event_type"],
-                                    minute=ev["minute"],
-                                    club_id=ev["club_id"],
-                                    text=ev["text"],
-                                    payload=ev["payload"],
-                                )
-                            )
-                            current_evs.append(
-                                {
-                                    "event_seq": ev["event_seq"],
-                                    "event_type": ev["event_type"],
-                                    "minute": ev["minute"],
-                                    "club_id": ev["club_id"],
-                                    "text": ev["text"],
-                                    "payload": ev["payload"],
-                                }
-                            )
-
-                        session.add(
-                            MatchState(
-                                fixture_id=fixture.id,
-                                status="completed",
-                                clock_seconds=MATCH_DURATION_SECONDS,
-                                home_goals=hg,
-                                away_goals=ag,
-                                current_events=current_evs,
-                                event_version=len(current_evs),
-                            )
-                        )
-
                     total_fixtures += 1
 
         await session.commit()
@@ -427,7 +380,7 @@ async def seed(force_reset: bool = False):
 
         print(
             f"Seeded: {len(LEAGUE_DEFINITIONS)} European leagues, {total_clubs} clubs, "
-            f"{total_fixtures} fixtures (Matchday 1 completed, Matchday 2 kicks off in 4 minutes)."
+            f"{total_fixtures} upcoming fixtures. Season 1 Matchday 1 kicks off in 4 minutes!"
         )
 
 

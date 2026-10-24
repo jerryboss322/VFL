@@ -57,6 +57,9 @@ export interface MatchEvent {
     side?: "home" | "away" | null;
     club_id?: string | null;
     display_minute?: number;
+    is_red?: boolean;
+    is_halftime?: boolean;
+    break_seconds?: number;
   };
 }
 

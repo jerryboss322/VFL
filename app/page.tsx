@@ -587,13 +587,13 @@ export default function HomePage() {
         <div className="b365-card overflow-hidden">
           {/* Header Strip for Match List */}
           <div className="hidden md:flex items-center justify-between bg-coal px-4 py-2 border-b border-line font-mono text-[11px] text-fog">
-            <div className="w-20">TIME / MD</div>
-            <div className="flex-1">MATCH</div>
-            <div className="flex items-center gap-2 justify-end w-72">
-              <span className="flex-1 text-center font-bold text-accent">1</span>
-              <span className="flex-1 text-center font-bold text-accent">X</span>
-              <span className="flex-1 text-center font-bold text-accent">2</span>
-              <span className="w-16 text-center">MORE</span>
+            <div className="w-16">TIME / MD</div>
+            <div className="flex-1 pl-3">MATCH &amp; TEAMS</div>
+            <div className="flex items-center gap-1.5 justify-end">
+              <span className="w-[74px] text-center font-bold text-accent">1</span>
+              <span className="w-[74px] text-center font-bold text-accent">X</span>
+              <span className="w-[74px] text-center font-bold text-accent">2</span>
+              <span className="w-14 text-center">MORE</span>
             </div>
           </div>
 
@@ -791,7 +791,7 @@ export default function HomePage() {
                                 decimal: opt.decimal,
                               })
                             }
-                            className={`min-h-[38px] min-w-[70px] rounded px-2.5 py-1 transition-all text-xs font-mono flex items-center justify-between gap-2 ${
+                            className={`min-h-[38px] w-full sm:w-[74px] shrink-0 rounded px-2 py-1 transition-all text-xs font-mono flex items-center justify-between gap-1 ${
                               selected
                                 ? "bg-accent border border-accent text-ink font-black shadow-sm"
                                 : disabled
@@ -825,7 +825,7 @@ export default function HomePage() {
 
                   <Link
                     href={`/matches/${fx.id}`}
-                    className="min-h-[38px] inline-flex items-center justify-center rounded border border-[#383E45] bg-[#2B3036] px-2.5 py-1 font-mono text-xs font-medium text-[#A3ACB5] hover:text-white hover:bg-[#383E45] transition-colors"
+                    className="min-h-[38px] w-full sm:w-14 shrink-0 inline-flex items-center justify-center rounded border border-[#383E45] bg-[#2B3036] px-1 py-1 font-mono text-xs font-medium text-[#A3ACB5] hover:text-white hover:bg-[#383E45] transition-colors"
                     title="View match details & all 27 markets"
                   >
                     +27 →

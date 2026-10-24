@@ -35,6 +35,8 @@ export function BetslipDrawer() {
   const stakeMinor = Number.isFinite(parsedMajor) ? Math.round(parsedMajor * 100) : 0;
   const totalOdds = combinedOdds(slip);
   const estReturnMinor = displayReturnMinor(stakeMinor, slip);
+  const estProfitMinor = Math.max(0, estReturnMinor - stakeMinor);
+  const hasInsufficientFunds = Boolean(user && wallet && wallet.availableMinor < stakeMinor);
 
   async function handlePlaceBet(e: React.FormEvent) {
     e.preventDefault();
@@ -239,7 +241,7 @@ export function BetslipDrawer() {
                 {slip.map((s) => (
                   <li
                     key={s.fixtureId}
-                    className="rounded border border-line border-l-2 border-l-accent bg-coal p-2.5 text-xs"
+                    className="rounded border border-line border-l-2 border-l-accent bg-coal p-2.5 text-xs transition-colors hover:border-line/80"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -254,14 +256,24 @@ export function BetslipDrawer() {
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
-                        <span className="tnum rounded border border-accent/40 bg-brand-dark px-2 py-0.5 font-mono text-xs font-bold text-accent">
-                          {s.decimal.toFixed(2)}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="tnum rounded border border-accent/40 bg-brand-dark px-2 py-0.5 font-mono text-xs font-bold text-accent">
+                            {s.decimal.toFixed(2)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeSlipSelection(s.fixtureId)}
+                            className="flex h-5 w-5 items-center justify-center rounded-full bg-graphite font-mono text-[11px] font-bold text-fog transition-colors hover:bg-loss/20 hover:text-loss"
+                            aria-label={`Remove ${s.label}`}
+                            title="Remove leg"
+                          >
+                            ✕
+                          </button>
+                        </div>
                         <button
                           type="button"
                           onClick={() => removeSlipSelection(s.fixtureId)}
-                          className="font-mono text-[10px] uppercase text-fog hover:text-loss"
-                          aria-label={`Remove ${s.label}`}
+                          className="font-mono text-[9px] uppercase tracking-wider text-fog/60 hover:text-loss transition-colors"
                         >
                           Remove
                         </button>
@@ -286,7 +298,7 @@ export function BetslipDrawer() {
                       }
                       className="font-mono text-[10px] text-accent hover:underline"
                     >
-                      Bal: {formatMinor(wallet.availableMinor)}
+                      Available: {formatMinor(wallet.availableMinor)}
                     </button>
                   )}
                 </div>
@@ -332,7 +344,8 @@ export function BetslipDrawer() {
                 </div>
               </div>
 
-              <div className="space-y-1.5 rounded border border-line bg-coal p-2.5 text-xs">
+              {/* Comprehensive Financial Return & Profit Breakdown */}
+              <div className="space-y-1.5 rounded border border-line bg-coal p-3 text-xs">
                 <div className="flex justify-between text-fog">
                   <span>Total Odds</span>
                   <span className="tnum font-mono font-bold text-white">
@@ -340,16 +353,45 @@ export function BetslipDrawer() {
                   </span>
                 </div>
                 <div className="flex justify-between text-fog">
-                  <span>Stake</span>
+                  <span>Stake Amount</span>
                   <span className="tnum font-mono text-white">{formatMinor(stakeMinor)}</span>
                 </div>
-                <div className="flex justify-between border-t border-line pt-1.5 font-semibold">
-                  <span className="text-white">To Return</span>
-                  <span className="tnum font-mono text-sm font-bold text-accent">
+                <div className="flex justify-between text-fog">
+                  <span>Potential Profit</span>
+                  <span className="tnum font-mono font-bold text-win">
+                    +{formatMinor(estProfitMinor)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-line pt-2 font-semibold">
+                  <span className="text-white">Potential Return</span>
+                  <span className="tnum font-mono text-base font-black text-accent">
                     {formatMinor(estReturnMinor)}
                   </span>
                 </div>
               </div>
+
+              {/* Authoritative Live Balance Indicator */}
+              {user && wallet && (
+                <div className="flex items-center justify-between rounded border border-line/60 bg-graphite/40 px-3 py-1.5 font-mono text-[11px]">
+                  <span className="text-fog">Available Funds:</span>
+                  <span
+                    className={`font-bold ${
+                      hasInsufficientFunds ? "text-loss" : "text-accent"
+                    }`}
+                  >
+                    {formatMinor(wallet.availableMinor)}
+                  </span>
+                </div>
+              )}
+
+              {hasInsufficientFunds && (
+                <div
+                  role="alert"
+                  className="rounded border border-loss/40 bg-loss/10 p-2 font-mono text-xs text-loss"
+                >
+                  Insufficient balance ({formatMinor(wallet?.availableMinor ?? 0)} available). Please reduce your stake or deposit simulated funds.
+                </div>
+              )}
 
               {errorMsg && (
                 <div
@@ -362,15 +404,17 @@ export function BetslipDrawer() {
 
               <button
                 type="submit"
-                disabled={placing}
-                className="flex min-h-[42px] w-full items-center justify-center rounded bg-accent px-4 py-2 font-mono text-xs font-black uppercase tracking-wider text-ink transition-all hover:brightness-110 shadow-md shadow-accent/20 disabled:opacity-50"
+                disabled={placing || hasInsufficientFunds}
+                className="flex min-h-[42px] w-full items-center justify-center rounded bg-accent px-4 py-2 font-mono text-xs font-black uppercase tracking-wider text-ink transition-all hover:brightness-110 shadow-md shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>
                   {placing
                     ? "Locking Wager..."
-                    : user
-                      ? `Place Bet • ${formatMinor(stakeMinor)}`
-                      : "Join / Sign In to Place Bet"}
+                    : hasInsufficientFunds
+                      ? "Insufficient Funds"
+                      : user
+                        ? `Place Bet • ${formatMinor(stakeMinor)}`
+                        : "Join / Sign In to Place Bet"}
                 </span>
               </button>
 
