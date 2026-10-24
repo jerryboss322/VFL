@@ -350,9 +350,21 @@ class MatchEngine:
         )
         state = result.scalar_one_or_none()
         if state is None:
-            raise ValueError(f"No match state for fixture {fixture.id}")
-        if state.status != "upcoming":
-            raise ValueError(f"Match {fixture.id} is already {state.status}")
+            home = fixture.home_club or await self.session.get(Club, fixture.home_club_id)
+            away = fixture.away_club or await self.session.get(Club, fixture.away_club_id)
+            state = await self.initialize_match(fixture, home, away)
+
+        if state.status == "live":
+            if fixture.status != "live":
+                fixture.status = "live"
+                await self.session.commit()
+            return state
+
+        if state.status == "completed":
+            if fixture.status != "completed":
+                fixture.status = "completed"
+                await self.session.commit()
+            return state
 
         state.status = "live"
         state.clock_seconds = 0
@@ -395,16 +407,26 @@ class MatchEngine:
         )
         state = result.scalar_one_or_none()
         if state is None:
-            raise ValueError(f"No match state for fixture {fixture.id}")
-        if state.status != "live":
-            raise ValueError(f"Match {fixture.id} is not live (status={state.status})")
+            home = fixture.home_club or await self.session.get(Club, fixture.home_club_id)
+            away = fixture.away_club or await self.session.get(Club, fixture.away_club_id)
+            state = await self.initialize_match(fixture, home, away)
+            state = await self.start_match(fixture)
 
-        clock = min(seconds_elapsed, MATCH_DURATION_SECONDS)
+        if state.status == "completed":
+            if fixture.status != "completed":
+                fixture.status = "completed"
+                await self.session.commit()
+            return state
+
+        if state.status == "upcoming":
+            state = await self.start_match(fixture)
+
+        clock = max(0, min(seconds_elapsed, MATCH_DURATION_SECONDS))
         state.clock_seconds = clock
 
         last_seq = 0
         if state.current_events:
-            last_seq = max(e["event_seq"] for e in state.current_events)
+            last_seq = max((e.get("event_seq", 0) for e in state.current_events), default=0)
 
         due_events = await self.session.execute(
             select(MatchEvent)
@@ -532,7 +554,11 @@ class MatchEngine:
         await self.session.refresh(state)
 
         if just_completed:
-            await auto_settle_fixture_bets(self.session, fixture)
+            try:
+                await auto_settle_fixture_bets(self.session, fixture)
+            except Exception as e:
+                import logging
+                logging.exception("Error settling bets for fixture %s: %s", fixture.id, e)
 
         return state
 

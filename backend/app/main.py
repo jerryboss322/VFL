@@ -1,4 +1,5 @@
 import os
+import logging
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -25,8 +26,8 @@ async def _background_match_loop():
             await run_simulation_tick()
         except asyncio.CancelledError:
             break
-        except Exception:
-            pass
+        except Exception as e:
+            logging.exception("Error in background match loop: %s", e)
         await asyncio.sleep(1.0)
 
 
@@ -77,11 +78,8 @@ async def lazy_simulation_catchup(request: Request, call_next):
     This ensures live matches, scores, timers, and settlements remain 100% accurate without
     requiring a paid Vercel Pro cron plan."""
     global _last_lazy_tick
-    # Catch up on read or write requests touching public football/bets/admin data
     p = request.url.path
     if (
-        os.environ.get("VERCEL") or settings.DATABASE_URL.startswith("postgres")
-    ) and (
         "/fixtures" in p
         or "/matches" in p
         or "/league" in p
@@ -89,6 +87,7 @@ async def lazy_simulation_catchup(request: Request, call_next):
         or "/admin" in p
         or "/profile" in p
         or "/leaderboard" in p
+        or "/cron" in p
     ):
         import time
 
@@ -97,8 +96,8 @@ async def lazy_simulation_catchup(request: Request, call_next):
             _last_lazy_tick = now
             try:
                 await run_simulation_tick()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Error in lazy_simulation_catchup: %s", e)
     return await call_next(request)
 
 

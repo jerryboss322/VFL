@@ -6,6 +6,8 @@ Vercel Cron invocation (e.g. once a minute) and always converge to the same stat
 """
 
 from datetime import datetime, timedelta, timezone
+from typing import Any
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -66,12 +68,13 @@ async def _cleanup_duplicate_fixtures(session) -> int:
         .order_by(Fixture.matchday.asc(), Fixture.created_at.asc())
     )
     all_upcoming = upcoming_res.scalars().all()
-    seen_club_md: dict[tuple[int, str], Fixture] = {}
+    seen_club_md: dict[tuple[str, int, str], Fixture] = {}
     deleted_count = 0
 
     for fx in all_upcoming:
-        k_home = (fx.matchday, str(fx.home_club_id))
-        k_away = (fx.matchday, str(fx.away_club_id))
+        s_id = str(fx.season_id)
+        k_home = (s_id, fx.matchday, str(fx.home_club_id))
+        k_away = (s_id, fx.matchday, str(fx.away_club_id))
         if k_home in seen_club_md or k_away in seen_club_md:
             bets_res = await session.execute(
                 select(Bet.id).where(Bet.fixture_id == fx.id).limit(1)
@@ -187,7 +190,7 @@ async def _ensure_infinite_upcoming_fixtures(session, now: datetime, pre_match: 
 
             # Determine kickoff base timestamp for new matchdays
             if latest_fx and latest_fx.status == "upcoming":
-                base_time = _parse_iso(latest_fx.kickoff_at)
+                base_time = max(_parse_iso(latest_fx.kickoff_at), now)
                 is_from_upcoming = True
             else:
                 base_time = now + timedelta(seconds=pre_match)
@@ -260,9 +263,10 @@ async def _ensure_infinite_upcoming_fixtures(session, now: datetime, pre_match: 
     if created_any:
         await session.commit()
 
-    # Re-query all fixtures ordered by matchday
+    # Re-query all active (live or upcoming) fixtures ordered by matchday
     refreshed = await session.execute(
         select(Fixture)
+        .where(Fixture.status.in_(["live", "upcoming"]))
         .options(selectinload(Fixture.home_club), selectinload(Fixture.away_club))
         .order_by(Fixture.matchday.asc(), Fixture.created_at.asc())
     )
@@ -279,13 +283,14 @@ def _parse_iso(ts: str) -> datetime:
 
 async def run_simulation_tick() -> dict:
     """Bring live matches up to date with the wall clock, kick off due matchdays,
-    and schedule the next matchday after one completes. Idempotent."""
+    and schedule the next matchday after one completes. Idempotent and per-league isolated."""
     if settings.SIMULATION_PAUSED:
         return {"paused": True}
 
     pre_match = getattr(settings, "PRE_MATCH_BREAK_SECONDS", 240)
     now = datetime.now(timezone.utc)
     advanced = kicked_off = 0
+    match_cycle_seconds = MATCH_DURATION_SECONDS + HALFTIME_BREAK_SECONDS + pre_match
 
     async with AsyncSessionLocal() as session:
         # Guarantee infinite matchday pipeline: if upcoming fixtures run low or run out, auto-generate more
@@ -293,6 +298,7 @@ async def run_simulation_tick() -> dict:
         if not fixtures:
             res = await session.execute(
                 select(Fixture)
+                .where(Fixture.status.in_(["live", "upcoming"]))
                 .options(selectinload(Fixture.home_club), selectinload(Fixture.away_club))
                 .order_by(Fixture.matchday.asc(), Fixture.created_at.asc())
             )
@@ -300,11 +306,12 @@ async def run_simulation_tick() -> dict:
         if not fixtures:
             return {"advanced": 0, "kickedOff": 0}
 
-        # Deduplicate fixtures in-memory so simulation engine never kicks off or advances duplicate matches on the same matchday
-        seen_md_clubs: dict[int, set[str]] = {}
+        # Deduplicate fixtures in-memory keyed by (season_id, matchday)
+        seen_md_clubs: dict[tuple[str, int], set[str]] = {}
         unique_fixtures: list[Fixture] = []
         for f in fixtures:
-            md_set = seen_md_clubs.setdefault(f.matchday, set())
+            k = (str(f.season_id), f.matchday)
+            md_set = seen_md_clubs.setdefault(k, set())
             c1, c2 = str(f.home_club_id), str(f.away_club_id)
             if c1 in md_set or c2 in md_set:
                 continue
@@ -315,68 +322,75 @@ async def run_simulation_tick() -> dict:
 
         engine = MatchEngine(session)
 
-        # 1. Kick off the next matchday if its kickoff time has passed and nothing is live
-        live = [f for f in fixtures if f.status == "live"]
-        upcoming = [f for f in fixtures if f.status == "upcoming"]
-        if not live and upcoming:
-            earliest_fx = min(upcoming, key=lambda f: _parse_iso(f.kickoff_at))
-            next_md = earliest_fx.matchday
-            target_season_id = earliest_fx.season_id
-            md_fx = [
-                f for f in upcoming
-                if f.season_id == target_season_id and f.matchday == next_md
-            ]
-            if now >= min(_parse_iso(f.kickoff_at) for f in md_fx):
-                for fx in md_fx:
-                    state = await engine.initialize_match(fx, fx.home_club, fx.away_club)
-                    if state.status == "upcoming":
-                        await engine.start_match(fx)
-                        kicked_off += 1
-                live = md_fx
+        # Partition fixtures by season_id so EVERY league progresses independently and concurrently!
+        by_season: dict[Any, list[Fixture]] = {}
+        for fx in fixtures:
+            by_season.setdefault(fx.season_id, []).append(fx)
 
-        # 2. Advance every live match to the clock implied by elapsed wall time
-        finished_at: datetime | None = None
-        for fx in live:
-            if fx.status != "live":
-                continue
-            state = await engine.get_state(fx.id)
-            if state is None:
-                await engine.initialize_match(fx, fx.home_club, fx.away_club)
-                state = await engine.start_match(fx)
-            started = _parse_iso(fx.kickoff_at)
-            elapsed = int((now - started).total_seconds()) * settings.SIMULATION_SPEED_MULTIPLIER
-            if elapsed < 240:
-                target_sim_clock = min(240, elapsed)
-            elif elapsed < 240 + HALFTIME_BREAK_SECONDS:
-                # 10-second half-time interval (pinned to 45' HT)
-                target_sim_clock = 240
-            else:
-                target_sim_clock = min(MATCH_DURATION_SECONDS, elapsed - HALFTIME_BREAK_SECONDS)
+        for season_id, s_fxs in by_season.items():
+            s_live = [f for f in s_fxs if f.status == "live"]
+            s_upcoming = [f for f in s_fxs if f.status == "upcoming"]
 
-            target = max(state.clock_seconds, target_sim_clock)
-            new_state = await engine.advance_tick(fx, min(MATCH_DURATION_SECONDS, target))
-            advanced += 1
-            if new_state.status == "completed":
-                finished_at = started + timedelta(
-                    seconds=(MATCH_DURATION_SECONDS + HALFTIME_BREAK_SECONDS) / max(1, settings.SIMULATION_SPEED_MULTIPLIER)
-                )
+            # 1. If no matches in this season are currently live, check if the earliest upcoming matchday is due
+            if not s_live and s_upcoming:
+                next_md = min(f.matchday for f in s_upcoming)
+                md_fx = [f for f in s_upcoming if f.matchday == next_md]
+                earliest_ko = min(_parse_iso(f.kickoff_at) for f in md_fx)
 
-        # 3. Once the whole matchday is done, schedule the following matchdays
-        if finished_at is not None and not any(f.status == "live" for f in live):
-            remaining = [f for f in fixtures if f.status == "upcoming"]
-            if remaining:
-                earliest_upcoming = min(remaining, key=lambda f: _parse_iso(f.kickoff_at))
-                next_md = earliest_upcoming.matchday
-                target_season_id = earliest_upcoming.season_id
-                base = max(finished_at, now - timedelta(seconds=pre_match))
-                match_cycle_seconds = MATCH_DURATION_SECONDS + HALFTIME_BREAK_SECONDS + pre_match
-                for f in remaining:
-                    if f.season_id == target_season_id:
-                        offset = f.matchday - next_md
+                if now >= earliest_ko:
+                    for fx in md_fx:
+                        try:
+                            state = await engine.initialize_match(fx, fx.home_club, fx.away_club)
+                            if state.status == "upcoming":
+                                await engine.start_match(fx)
+                                kicked_off += 1
+                        except Exception as e:
+                            import logging
+                            logging.exception("Error kicking off fixture %s: %s", fx.id, e)
+                    s_live = md_fx
+
+            # 2. Advance all live matches for this season
+            finished_season_at: datetime | None = None
+            for fx in list(s_live):
+                try:
+                    started = _parse_iso(fx.kickoff_at)
+                    elapsed = int((now - started).total_seconds()) * settings.SIMULATION_SPEED_MULTIPLIER
+
+                    if elapsed < 240:
+                        target_sim_clock = max(0, min(240, elapsed))
+                    elif elapsed < 240 + HALFTIME_BREAK_SECONDS:
+                        # 10-second half-time tactical interval (pinned to 45' HT / 240s)
+                        target_sim_clock = 240
+                    else:
+                        target_sim_clock = min(MATCH_DURATION_SECONDS, elapsed - HALFTIME_BREAK_SECONDS)
+
+                    state = await engine.get_state(fx.id)
+                    current_clock = state.clock_seconds if state else 0
+                    target = max(current_clock, target_sim_clock)
+
+                    new_state = await engine.advance_tick(fx, min(MATCH_DURATION_SECONDS, target))
+                    advanced += 1
+
+                    if new_state.status == "completed":
+                        fx.status = "completed"
+                        finished_season_at = started + timedelta(
+                            seconds=(MATCH_DURATION_SECONDS + HALFTIME_BREAK_SECONDS) / max(1, settings.SIMULATION_SPEED_MULTIPLIER)
+                        )
+                except Exception as e:
+                    import logging
+                    logging.exception("Error advancing fixture %s: %s", fx.id, e)
+
+            # 3. If all live matches for this season just completed, schedule subsequent matchdays
+            if finished_season_at is not None and not any(f.status == "live" for f in s_live):
+                remaining_upcoming = [f for f in s_fxs if f.status == "upcoming" and f not in s_live]
+                if remaining_upcoming:
+                    earliest_upcoming_md = min(f.matchday for f in remaining_upcoming)
+                    base = max(finished_season_at, now)
+                    for f in remaining_upcoming:
+                        offset = f.matchday - earliest_upcoming_md
                         f.kickoff_at = (
-                            base
-                            + timedelta(seconds=pre_match + offset * match_cycle_seconds)
+                            base + timedelta(seconds=pre_match + offset * match_cycle_seconds)
                         ).isoformat()
-                await session.commit()
+                    await session.commit()
 
     return {"advanced": advanced, "kickedOff": kicked_off}
