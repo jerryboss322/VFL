@@ -10,6 +10,7 @@ Design principles:
 - Automatic bet settlement trigger upon full-time completion.
 """
 
+import math
 import random
 from datetime import datetime, timezone
 from typing import Any
@@ -67,13 +68,24 @@ _CARD_COMMENTARY = [
 _TIMELINE_SLOTS = [0, 3, 7, 36, 72, 115, 160, 205, 240, 285, 330, 375, 415, 455, 480]
 
 
+def _sample_poisson(lam: float, rng: random.Random) -> int:
+    """Knuth's Poisson random variable generator."""
+    L = math.exp(-max(0.1, lam))
+    k = 0
+    p = 1.0
+    while p > L:
+        k += 1
+        p *= rng.random()
+    return max(0, k - 1)
+
+
 def _generate_match_events(
     fixture_id: str,
     home_club: Club,
     away_club: Club,
     rng: random.Random,
 ) -> list[dict[str, Any]]:
-    """Generate a deterministic, ratings-weighted 15-event sequence for a match."""
+    """Generate a deterministic, ratings-weighted 15-event sequence for a match with authentic Poisson goal distribution."""
     events: list[dict[str, Any]] = []
 
     h_att = getattr(home_club, "attack_rating", 1.0) or 1.0
@@ -85,8 +97,21 @@ def _generate_match_events(
     total_lam = lam_home + lam_away
     home_prob = lam_home / total_lam if total_lam > 0 else 0.53
 
-    # Expected conversion rate per action slot so total match goals reflect Poisson lambda
-    goal_prob = min(0.45, max(0.18, (total_lam - 1.0) / 11.0))
+    # Sample realistic goal counts directly from the Poisson distribution
+    home_goals_target = min(5, _sample_poisson(lam_home, rng))
+    away_goals_target = min(5, _sample_poisson(lam_away, rng))
+
+    action_ticks = [t for t in _TIMELINE_SLOTS if t not in (0, MATCH_DURATION_SECONDS)]
+    total_goals = min(len(action_ticks), home_goals_target + away_goals_target)
+
+    # Randomly select which action slots will be goals across the match timeline
+    goal_ticks: list[int] = []
+    if total_goals > 0:
+        goal_ticks = rng.sample(action_ticks, total_goals)
+
+    rng.shuffle(goal_ticks)
+    home_goal_ticks = set(goal_ticks[:home_goals_target])
+    away_goal_ticks = set(goal_ticks[home_goals_target:home_goals_target + away_goals_target])
 
     for seq, tick in enumerate(_TIMELINE_SLOTS, start=1):
         display_min = _clock_to_football_minute(tick)
@@ -119,23 +144,23 @@ def _generate_match_events(
             )
             continue
 
-        is_home = rng.random() < home_prob
-        side = "home" if is_home else "away"
-        club = home_club if is_home else away_club
+        if tick in home_goal_ticks:
+            event_type = "goal"
+            side = "home"
+            club = home_club
+        elif tick in away_goal_ticks:
+            event_type = "goal"
+            side = "away"
+            club = away_club
+        else:
+            is_home = rng.random() < home_prob
+            side = "home" if is_home else "away"
+            club = home_club if is_home else away_club
+            # 22% yellow card chance, 78% tactical goal chance / keeper save
+            event_type = "card" if rng.random() < 0.22 else "chance"
+
         club_id = str(club.id)
         club_name = club.name
-
-        # Slot at tick=7 is a guaranteed early goal breakthrough; other slots roll probabilistically
-        if tick == 7:
-            event_type = "goal"
-        else:
-            roll = rng.random()
-            if roll < goal_prob:
-                event_type = "goal"
-            elif roll < goal_prob + 0.25:
-                event_type = "card"
-            else:
-                event_type = "chance"
 
         if event_type == "goal":
             template = rng.choice(_GOAL_COMMENTARY)

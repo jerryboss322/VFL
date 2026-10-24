@@ -45,8 +45,8 @@ import math
 from typing import Any
 from uuid import UUID
 
-BASELINE_GOALS = 1.35
-HOME_ADVANTAGE = 1.12
+BASELINE_GOALS = 1.25
+HOME_ADVANTAGE = 1.10
 OVERROUND = 1.045
 MIN_ODDS = 1.06
 MAX_ODDS = 65.00
@@ -68,7 +68,7 @@ def compute_expected_goals(
 ) -> tuple[float, float]:
     lam_home = BASELINE_GOALS * HOME_ADVANTAGE * (home_attack / max(0.5, away_defense))
     lam_away = BASELINE_GOALS * (away_attack / max(0.5, home_defense))
-    return max(0.35, min(3.50, lam_home)), max(0.35, min(3.50, lam_away))
+    return max(0.30, min(2.80, lam_home)), max(0.30, min(2.80, lam_away))
 
 
 def _prob_to_decimal_odds(prob: float, overround: float = OVERROUND) -> float:
