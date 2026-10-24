@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_session
 from app.models.fixture import Fixture
+from app.models.match_event import MatchEvent
 from app.models.odds import OddsSnapshot
 from app.schemas.odds import FixtureOddsOut
 from app.services.odds_engine import generate_fixture_markets
@@ -31,6 +32,25 @@ async def _get_or_create_fixture_odds(session: AsyncSession, fixture_id: str) ->
         fx = fx_res.scalar_one_or_none()
         if fx is not None and fx.status == "live":
             new_ver = odds.version + 1
+            ht_h = 0
+            ht_a = 0
+            if (fx.clock_seconds or 0) >= 240:
+                ev_res = await session.execute(
+                    select(MatchEvent)
+                    .where(MatchEvent.fixture_id == fx.id)
+                    .where(MatchEvent.minute <= 240)
+                    .where(MatchEvent.event_type == "goal")
+                )
+                for ev in ev_res.scalars():
+                    side = (ev.payload or {}).get("side")
+                    if side == "home":
+                        ht_h += 1
+                    elif side == "away":
+                        ht_a += 1
+            else:
+                ht_h = fx.home_goals or 0
+                ht_a = fx.away_goals or 0
+
             odds.markets = generate_fixture_markets(
                 fixture_id=fx.id,
                 home_name=fx.home_club.name if fx.home_club else "Home",
@@ -45,6 +65,8 @@ async def _get_or_create_fixture_odds(session: AsyncSession, fixture_id: str) ->
                 current_away_goals=fx.away_goals or 0,
                 elapsed_seconds=fx.clock_seconds or 0,
                 is_live=True,
+                ht_home_goals=ht_h,
+                ht_away_goals=ht_a,
             )
             odds.version = new_ver
             await session.commit()
@@ -66,6 +88,25 @@ async def _get_or_create_fixture_odds(session: AsyncSession, fixture_id: str) ->
 
     is_live = fx.status == "live"
     is_completed = fx.status == "completed"
+    ht_h = 0
+    ht_a = 0
+    if is_live and (fx.clock_seconds or 0) >= 240:
+        ev_res = await session.execute(
+            select(MatchEvent)
+            .where(MatchEvent.fixture_id == fx.id)
+            .where(MatchEvent.minute <= 240)
+            .where(MatchEvent.event_type == "goal")
+        )
+        for ev in ev_res.scalars():
+            side = (ev.payload or {}).get("side")
+            if side == "home":
+                ht_h += 1
+            elif side == "away":
+                ht_a += 1
+    elif is_live:
+        ht_h = fx.home_goals or 0
+        ht_a = fx.away_goals or 0
+
     markets = generate_fixture_markets(
         fixture_id=fx.id,
         home_name=fx.home_club.name if fx.home_club else "Home",
@@ -80,6 +121,8 @@ async def _get_or_create_fixture_odds(session: AsyncSession, fixture_id: str) ->
         current_away_goals=fx.away_goals or 0,
         elapsed_seconds=fx.clock_seconds or 0,
         is_live=is_live,
+        ht_home_goals=ht_h,
+        ht_away_goals=ht_a,
     )
     odds = OddsSnapshot(
         fixture_id=fx.id,

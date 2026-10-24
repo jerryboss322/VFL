@@ -484,6 +484,17 @@ class MatchEngine:
                 new_ver = odds_snap.version + 1
                 home_club = await self.session.get(Club, fixture.home_club_id)
                 away_club = await self.session.get(Club, fixture.away_club_id)
+                ht_h = 0
+                ht_a = 0
+                for ev in (state.current_events or []):
+                    if ev.get("event_type") == "goal":
+                        m = ev.get("minute", 0)
+                        if m <= 240:
+                            side = (ev.get("payload") or {}).get("side")
+                            if side == "home":
+                                ht_h += 1
+                            elif side == "away":
+                                ht_a += 1
                 odds_snap.markets = generate_fixture_markets(
                     fixture_id=fixture.id,
                     home_name=home_club.name if home_club else "Home",
@@ -499,6 +510,8 @@ class MatchEngine:
                     elapsed_seconds=clock,
                     match_duration_seconds=MATCH_DURATION_SECONDS,
                     is_live=True,
+                    ht_home_goals=ht_h,
+                    ht_away_goals=ht_a,
                 )
                 odds_snap.version = new_ver
         elif state.status == "completed":

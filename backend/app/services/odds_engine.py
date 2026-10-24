@@ -180,14 +180,29 @@ def generate_fixture_markets(
     elapsed_seconds: int = 0,
     match_duration_seconds: int = 480,
     is_live: bool = False,
+    ht_home_goals: int | None = None,
+    ht_away_goals: int | None = None,
 ) -> list[dict[str, Any]]:
     fid = str(fixture_id)
+    half_boundary = match_duration_seconds // 2
     lam_h, lam_a = compute_expected_goals(home_attack, home_defense, away_attack, away_defense)
 
+    # Determine goals scored specifically in 1st half and 2nd half
+    if elapsed_seconds < half_boundary:
+        cur_1h_h = current_home_goals
+        cur_1h_a = current_away_goals
+        cur_2h_h = 0
+        cur_2h_a = 0
+    else:
+        cur_1h_h = ht_home_goals if ht_home_goals is not None else current_home_goals
+        cur_1h_a = ht_away_goals if ht_away_goals is not None else current_away_goals
+        cur_2h_h = max(0, current_home_goals - cur_1h_h)
+        cur_2h_a = max(0, current_away_goals - cur_1h_a)
+
     if is_live and elapsed_seconds > 0:
-        rem_fraction = max(0.01, min(1.0, (match_duration_seconds - elapsed_seconds) / float(match_duration_seconds)))
-        rem_lam_h = max(0.01, lam_h * rem_fraction)
-        rem_lam_a = max(0.01, lam_a * rem_fraction)
+        rem_fraction = max(0.0, min(1.0, (match_duration_seconds - elapsed_seconds) / float(match_duration_seconds)))
+        rem_lam_h = max(0.001, lam_h * rem_fraction)
+        rem_lam_a = max(0.001, lam_a * rem_fraction)
 
         ft_grid: dict[tuple[int, int], float] = {}
         ft_norm = 0.0
@@ -202,39 +217,65 @@ def generate_fixture_markets(
         for k in ft_grid:
             ft_grid[k] /= max(1e-9, ft_norm)
 
-        half_boundary = match_duration_seconds // 2
+        # 1st-half grid
         h1_grid: dict[tuple[int, int], float] = {}
         if elapsed_seconds >= half_boundary:
-            h1_grid[(current_home_goals, current_away_goals)] = 1.0
+            h1_grid[(cur_1h_h, cur_1h_a)] = 1.0
         else:
-            h1_rem_fraction = max(0.01, (half_boundary - elapsed_seconds) / float(half_boundary))
-            h1_lam_h = max(0.01, lam_h * HALF_ONE_SHARE * h1_rem_fraction)
-            h1_lam_a = max(0.01, lam_a * HALF_ONE_SHARE * h1_rem_fraction)
+            h1_rem_fraction = max(0.0, (half_boundary - elapsed_seconds) / float(half_boundary))
+            h1_lam_h = max(0.001, lam_h * HALF_ONE_SHARE * h1_rem_fraction)
+            h1_lam_a = max(0.001, lam_a * HALF_ONE_SHARE * h1_rem_fraction)
             h1_norm = 0.0
             for fh in range(6):
                 ph = _poisson_pmf(fh, h1_lam_h)
                 for fa in range(6):
                     pa = _poisson_pmf(fa, h1_lam_a)
                     p = ph * pa
-                    sc = (current_home_goals + fh, current_away_goals + fa)
+                    sc = (cur_1h_h + fh, cur_1h_a + fa)
                     h1_grid[sc] = h1_grid.get(sc, 0.0) + p
                     h1_norm += p
             for k in h1_grid:
                 h1_grid[k] /= max(1e-9, h1_norm)
 
+        # 2nd-half grid (calculated strictly from 2nd-half goals and remaining 2nd-half lambda)
         h2_grid: dict[tuple[int, int], float] = {}
-        h2_norm = 0.0
-        for fh in range(6):
-            ph = _poisson_pmf(fh, rem_lam_h)
-            for fa in range(6):
-                pa = _poisson_pmf(fa, rem_lam_a)
-                p = ph * pa
-                h2_grid[(fh, fa)] = p
-                h2_norm += p
-        for k in h2_grid:
-            h2_grid[k] /= max(1e-9, h2_norm)
+        if elapsed_seconds < half_boundary:
+            # 2nd half has not kicked off yet: full 2nd half remaining starting from (0, 0)
+            h2_lam_h = lam_h * HALF_TWO_SHARE
+            h2_lam_a = lam_a * HALF_TWO_SHARE
+            h2_norm = 0.0
+            for fh in range(6):
+                ph = _poisson_pmf(fh, h2_lam_h)
+                for fa in range(6):
+                    pa = _poisson_pmf(fa, h2_lam_a)
+                    p = ph * pa
+                    h2_grid[(fh, fa)] = p
+                    h2_norm += p
+            for k in h2_grid:
+                h2_grid[k] /= max(1e-9, h2_norm)
+        else:
+            # 2nd half in progress: remaining 2nd-half lambda added to current 2nd-half goals
+            rem_2h_seconds = max(0, match_duration_seconds - elapsed_seconds)
+            rem_2h_fraction = max(0.0, rem_2h_seconds / float(half_boundary))
+            h2_lam_h = max(0.001, lam_h * HALF_TWO_SHARE * rem_2h_fraction)
+            h2_lam_a = max(0.001, lam_a * HALF_TWO_SHARE * rem_2h_fraction)
+            h2_norm = 0.0
+            for fh in range(6):
+                ph = _poisson_pmf(fh, h2_lam_h)
+                for fa in range(6):
+                    pa = _poisson_pmf(fa, h2_lam_a)
+                    p = ph * pa
+                    sc = (cur_2h_h + fh, cur_2h_a + fa)
+                    h2_grid[sc] = h2_grid.get(sc, 0.0) + p
+                    h2_norm += p
+            for k in h2_grid:
+                h2_grid[k] /= max(1e-9, h2_norm)
     else:
-        # Half-specific Poisson rates
+        # Pre-match grids
+        cur_1h_h = 0
+        cur_1h_a = 0
+        cur_2h_h = 0
+        cur_2h_a = 0
         lam_h1 = lam_h * HALF_ONE_SHARE
         lam_a1 = lam_a * HALF_ONE_SHARE
         lam_h2 = lam_h * HALF_TWO_SHARE
@@ -391,9 +432,13 @@ def generate_fixture_markets(
         )
 
     p_over_2_5 = sum(p for (h, a), p in ft_grid.items() if (h + a) > 2)
-    p_under_2_5 = max(0.03, 1.0 - p_over_2_5)
-    p_btts_yes = sum(p for (h, a), p in ft_grid.items() if h >= 1 and a >= 1)
-    p_btts_no = max(0.03, 1.0 - p_btts_yes)
+    p_under_2_5 = max(0.0001, 1.0 - p_over_2_5)
+    if is_live and current_home_goals >= 1 and current_away_goals >= 1:
+        p_btts_yes = 0.999
+        p_btts_no = 0.0001
+    else:
+        p_btts_yes = sum(p for (h, a), p in ft_grid.items() if h >= 1 and a >= 1)
+        p_btts_no = max(0.0001, 1.0 - p_btts_yes)
 
     # Home & Away Team Goals Over/Under (0.5, 1.5, 2.5)
     home_ou_opts: list[dict[str, Any]] = []
@@ -528,10 +573,23 @@ def generate_fixture_markets(
     p_2h_away = sum(p for (h, a), p in h2_grid.items() if h < a)
 
     # 1st & 2nd Half Both Teams to Score probabilities
-    p_1h_btts_yes = sum(p for (h, a), p in h1_grid.items() if h >= 1 and a >= 1)
-    p_1h_btts_no = max(0.02, 1.0 - p_1h_btts_yes)
-    p_2h_btts_yes = sum(p for (h, a), p in h2_grid.items() if h >= 1 and a >= 1)
-    p_2h_btts_no = max(0.02, 1.0 - p_2h_btts_yes)
+    if is_live and cur_1h_h >= 1 and cur_1h_a >= 1:
+        p_1h_btts_yes = 0.999
+        p_1h_btts_no = 0.0001
+    else:
+        p_1h_btts_yes = sum(p for (h, a), p in h1_grid.items() if h >= 1 and a >= 1)
+        p_1h_btts_no = max(0.0001, 1.0 - p_1h_btts_yes)
+
+    if is_live and elapsed_seconds >= half_boundary:
+        if cur_2h_h >= 1 and cur_2h_a >= 1:
+            p_2h_btts_yes = 0.999
+            p_2h_btts_no = 0.0001
+        else:
+            p_2h_btts_yes = sum(p for (h, a), p in h2_grid.items() if h >= 1 and a >= 1)
+            p_2h_btts_no = max(0.0001, 1.0 - p_2h_btts_yes)
+    else:
+        p_2h_btts_yes = sum(p for (h, a), p in h2_grid.items() if h >= 1 and a >= 1)
+        p_2h_btts_no = max(0.02, 1.0 - p_2h_btts_yes)
 
     markets = [
         # ==================== 1. MATCH RESULT MARKETS ====================

@@ -765,9 +765,9 @@ export default function HomePage() {
                         const disabled = !isBettingOpen || opt.suspended || (is1HMarket && is1HFinished);
                         const movement = oddsMovementMap[opt.oddsId];
                         let tag = opt.label;
-                        if (opt.outcome === "home" || opt.outcome === "ht_home") tag = "1";
-                        else if (opt.outcome === "draw" || opt.outcome === "ht_draw") tag = "X";
-                        else if (opt.outcome === "away" || opt.outcome === "ht_away") tag = "2";
+                        if (opt.outcome === "home" || opt.outcome === "ht_home" || opt.outcome === "2h_home") tag = "1";
+                        else if (opt.outcome === "draw" || opt.outcome === "ht_draw" || opt.outcome === "2h_draw") tag = "X";
+                        else if (opt.outcome === "away" || opt.outcome === "ht_away" || opt.outcome === "2h_away") tag = "2";
                         else if (opt.outcome === "dc_1x") tag = "1X";
                         else if (opt.outcome === "dc_12") tag = "12";
                         else if (opt.outcome === "dc_x2") tag = "X2";
@@ -775,8 +775,8 @@ export default function HomePage() {
                         else if (opt.outcome === "dnb_away") tag = "2 DNB";
                         else if (opt.outcome === "over_2_5") tag = "O 2.5";
                         else if (opt.outcome === "under_2_5") tag = "U 2.5";
-                        else if (opt.outcome === "btts_yes") tag = "YES";
-                        else if (opt.outcome === "btts_no") tag = "NO";
+                        else if (opt.outcome === "btts_yes" || opt.outcome === "1h_btts_yes" || opt.outcome === "2h_btts_yes") tag = "YES";
+                        else if (opt.outcome === "btts_no" || opt.outcome === "1h_btts_no" || opt.outcome === "2h_btts_no") tag = "NO";
                         else if (opt.outcome === "odd_goals") tag = "ODD";
                         else if (opt.outcome === "even_goals") tag = "EVEN";
                         else if (opt.outcome === "first_goal_home") tag = "1ST H";
