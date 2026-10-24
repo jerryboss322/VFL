@@ -19,10 +19,14 @@ def _normalize_db_url(raw: str) -> tuple[str, dict]:
     parts = urlsplit(url)
     query = dict(parse_qsl(parts.query))
     connect_args: dict = {}
-    # asyncpg does not understand libpq-only params such as sslmode / channel_binding
+    # asyncpg does not understand libpq-only params such as sslmode / channel_binding / pgbouncer
     sslmode = query.pop("sslmode", None)
     query.pop("channel_binding", None)
+    query.pop("pgbouncer", None)
+    query.pop("supa", None)
     if sslmode and sslmode != "disable":
+        connect_args["ssl"] = "require"
+    elif "supabase" in parts.netloc or "neon" in parts.netloc:
         connect_args["ssl"] = "require"
     url = urlunsplit(parts._replace(query=urlencode(query)))
     return url, connect_args

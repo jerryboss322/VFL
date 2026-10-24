@@ -211,10 +211,14 @@ for _prefix in ("", "/api"):
 
         from app.core.database import engine
 
+        from urllib.parse import urlsplit
         url = settings.DATABASE_URL
+        parts = urlsplit(url)
+        host_safe = parts.netloc.split("@")[-1] if "@" in parts.netloc else parts.netloc
         info: dict = {
             "database_url_configured": bool(os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")),
-            "env_keys_found": [k for k in ["DATABASE_URL", "POSTGRES_URL", "DATABASE_URL_UNPOOLED", "SECRET_KEY"] if k in os.environ],
+            "database_host": host_safe,
+            "db_env_keys": [k for k in os.environ if any(x in k.lower() for x in ["postgres", "database", "supabase"])],
             "points_to_localhost": "localhost" in url or "127.0.0.1" in url,
         }
         try:
