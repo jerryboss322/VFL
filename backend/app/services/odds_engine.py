@@ -1214,3 +1214,7 @@ def evaluate_selection_outcome(
             return first_scorer == "away" and ft_res == "home"
 
     return False
+
+
+# Backwards compatibility alias
+evaluate_market_outcome = evaluate_selection_outcome

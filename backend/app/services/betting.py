@@ -21,7 +21,7 @@ from app.models.odds import OddsSnapshot
 from app.models.user import User
 from app.models.wallet import Wallet
 from app.schemas.bet import PlaceBetRequest
-from app.services.odds_engine import evaluate_selection_outcome, evaluate_market_outcome
+from app.services.odds_engine import evaluate_selection_outcome
 
 
 def _now_iso() -> str:
@@ -409,12 +409,13 @@ async def compute_bet_cashout(session: AsyncSession, bet: Bet) -> dict[str, Any]
             oid = sel.get("odds_id") or sel.get("oddsId") or ""
             out = sel.get("outcome") or ""
             mkey = sel.get("market") or ""
-            won = evaluate_market_outcome(
-                mkey,
-                out,
-                fx.home_goals or 0,
-                fx.away_goals or 0,
-                oid=oid,
+            won = evaluate_selection_outcome(
+                market_key=mkey,
+                outcome=out,
+                label=sel.get("label", ""),
+                odds_id=oid,
+                home_goals=fx.home_goals or 0,
+                away_goals=fx.away_goals or 0,
             )
             if not won:
                 return {
