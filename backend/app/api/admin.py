@@ -1197,13 +1197,54 @@ async def list_admin_fixtures(
     )
     if league_id:
         stmt = stmt.where(Season.league_id == league_id)
+        active_season_res = await session.execute(
+            select(Season.id)
+            .where(Season.league_id == league_id, Season.is_active == True)  # noqa: E712
+            .order_by(Season.created_at.desc())
+            .limit(1)
+        )
+        active_season_id = active_season_res.scalar_one_or_none()
+        if active_season_id:
+            stmt = stmt.where(Fixture.season_id == active_season_id)
     if matchday is not None:
         stmt = stmt.where(Fixture.matchday == matchday)
     if status and status != "all":
         stmt = stmt.where(Fixture.status == status)
 
     res = await session.execute(stmt)
-    fixtures = res.scalars().all()
+    fixtures_raw = res.scalars().all()
+
+    # Deduplicate so admin panel displays exactly one fixture per club per matchday
+    status_priority = {"live": 0, "upcoming": 1, "completed": 2}
+    sorted_fixtures = sorted(
+        fixtures_raw,
+        key=lambda fx: (
+            fx.matchday,
+            status_priority.get(fx.status, 3),
+            str(fx.id),
+        ),
+    )
+    fixtures: list[Fixture] = []
+    seen_pairings_by_md: set[tuple[int, str]] = set()
+    seen_clubs_by_md: dict[int, set[str]] = {}
+
+    for fx in sorted_fixtures:
+        md = fx.matchday
+        c1, c2 = str(fx.home_club_id), str(fx.away_club_id)
+        pair_key = (md, "-".join(sorted([c1, c2])))
+        if pair_key in seen_pairings_by_md:
+            continue
+
+        clubs_in_md = seen_clubs_by_md.setdefault(md, set())
+        if c1 in clubs_in_md or c2 in clubs_in_md:
+            continue
+
+        seen_pairings_by_md.add(pair_key)
+        clubs_in_md.add(c1)
+        clubs_in_md.add(c2)
+        fixtures.append(fx)
+
+    fixtures.sort(key=lambda f: (f.matchday, str(f.id)))
 
     odds_res = await session.execute(
         select(OddsSnapshot).where(OddsSnapshot.is_active == True)  # noqa: E712
@@ -1388,7 +1429,21 @@ async def trigger_season_rollover(
         for idx, pairings in enumerate(rounds, start=1):
             md_num = max_md + idx
             ko = now + timedelta(seconds=240 + idx * 720)
+            existing_target_res = await session.execute(
+                select(Fixture).where(
+                    Fixture.season_id == season.id,
+                    Fixture.matchday == md_num,
+                )
+            )
+            existing_target = existing_target_res.scalars().all()
+            if len(existing_target) >= len(clubs) // 2:
+                continue
+            booked_clubs = {f.home_club_id for f in existing_target} | {f.away_club_id for f in existing_target}
+
             for home, away in pairings:
+                if home.id in booked_clubs or away.id in booked_clubs:
+                    continue
+
                 fx = Fixture(
                     season_id=season.id,
                     home_club_id=home.id,
@@ -1399,6 +1454,8 @@ async def trigger_season_rollover(
                 )
                 session.add(fx)
                 await session.flush()
+                booked_clubs.add(home.id)
+                booked_clubs.add(away.id)
                 markets = generate_fixture_markets(
                     fixture_id=fx.id,
                     home_name=home.name,

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 import uuid
-from sqlalchemy import Integer, String, ForeignKey
+from sqlalchemy import Integer, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.models.base import BaseModel
@@ -9,6 +9,9 @@ from app.models.base import BaseModel
 
 class Fixture(BaseModel):
     __tablename__ = "fixtures"
+    __table_args__ = (
+        UniqueConstraint("season_id", "matchday", "home_club_id", name="uq_fixture_season_md_home"),
+    )
 
     season_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("seasons.id"), nullable=False)
     home_club_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("clubs.id"), nullable=False)

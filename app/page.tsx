@@ -92,11 +92,39 @@ export default function HomePage() {
       const sorted = [...res.data].sort(
         (a, b) => a.matchday - b.matchday || a.id.localeCompare(b.id),
       );
-      setFixtures(sorted);
+
+      // Deduplicate fixtures: guarantee no matchup or club occurs more than once on the same matchday
+      const seenPairings = new Set<string>();
+      const seenClubsByMd = new Map<number, Set<string>>();
+      const deduped: Fixture[] = [];
+
+      for (const fx of sorted) {
+        const homeId = fx.home.id;
+        const awayId = fx.away.id;
+        const pairKey = `${fx.matchday}-${[homeId, awayId].sort().join("-")}`;
+        if (seenPairings.has(pairKey)) continue;
+
+        let clubsInMd = seenClubsByMd.get(fx.matchday);
+        if (!clubsInMd) {
+          clubsInMd = new Set<string>();
+          seenClubsByMd.set(fx.matchday, clubsInMd);
+        }
+        if (clubsInMd.has(homeId) || clubsInMd.has(awayId)) {
+          // One of the clubs already has a match on this matchday, skip duplicate
+          continue;
+        }
+
+        seenPairings.add(pairKey);
+        clubsInMd.add(homeId);
+        clubsInMd.add(awayId);
+        deduped.push(fx);
+      }
+
+      setFixtures(deduped);
       setLoading(false);
 
       // Audio Telemetry: Detect live goals scored and play celebration chime
-      const liveGoalsSum = sorted
+      const liveGoalsSum = deduped
         .filter((x) => x.status === "live")
         .reduce((acc, x) => acc + (x.homeGoals ?? 0) + (x.awayGoals ?? 0), 0);
       if (!isInitial && prevLiveGoalsSumRef.current !== null && liveGoalsSum > prevLiveGoalsSumRef.current) {
@@ -104,18 +132,18 @@ export default function HomePage() {
       }
       prevLiveGoalsSumRef.current = liveGoalsSum;
 
-      const currentlyHasLive = sorted.some((x) => x.status === "live");
+      const currentlyHasLive = deduped.some((x) => x.status === "live");
       // Only refresh wallet/openBets once when a live matchday finishes and settles
       if (prevHadLiveRef.current && !currentlyHasLive) {
         void refreshAccount();
       }
       prevHadLiveRef.current = currentlyHasLive;
 
-      if (isInitial && sorted.length > 0) {
+      if (isInitial && deduped.length > 0) {
         const activeFx =
-          sorted.find((x) => x.status === "live") ||
-          sorted.find((x) => x.status === "upcoming") ||
-          sorted[0];
+          deduped.find((x) => x.status === "live") ||
+          deduped.find((x) => x.status === "upcoming") ||
+          deduped[0];
         if (activeFx) setSelectedMatchday(activeFx.matchday);
       }
     },
@@ -452,8 +480,8 @@ export default function HomePage() {
                 onClick={() => setActiveMarketKey(m.key)}
                 className={`min-h-[30px] rounded px-2.5 py-1 text-xs font-medium transition-colors ${
                   activeMarketKey === m.key
-                    ? "bg-[#027B5B] text-white font-bold"
-                    : "bg-[#2B3036] text-[#A3ACB5] hover:text-white hover:bg-[#383E45]"
+                    ? "bg-accent text-ink font-bold shadow-sm"
+                    : "bg-coal text-fog hover:text-white hover:bg-graphite"
                 }`}
               >
                 {m.label}
@@ -469,8 +497,8 @@ export default function HomePage() {
                 onClick={() => setStatusFilter(st)}
                 className={`min-h-[28px] rounded px-2 py-0.5 font-mono text-[11px] uppercase transition-colors ${
                   statusFilter === st
-                    ? "bg-[#027B5B] text-white font-bold"
-                    : "text-[#A3ACB5] hover:text-white"
+                    ? "bg-accent text-ink font-bold shadow-sm"
+                    : "text-fog hover:text-white hover:bg-coal"
                 }`}
               >
                 {st}

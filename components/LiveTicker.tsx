@@ -36,8 +36,30 @@ export function LiveTicker() {
     };
   }, [selectedLeagueId]);
 
-  const liveFixtures = fixtures.filter((f) => f.status === "live");
-  const upcomingFixtures = fixtures.filter((f) => f.status === "upcoming").slice(0, 4);
+  // Deduplicate fixtures to guarantee no duplicate matchups on the ticker
+  const seenPairings = new Set<string>();
+  const seenClubsByMd = new Map<number, Set<string>>();
+  const dedupedFixtures: Fixture[] = [];
+
+  for (const fx of fixtures) {
+    const pairKey = `${fx.matchday}-${[fx.home.id, fx.away.id].sort().join("-")}`;
+    if (seenPairings.has(pairKey)) continue;
+
+    let clubsInMd = seenClubsByMd.get(fx.matchday);
+    if (!clubsInMd) {
+      clubsInMd = new Set<string>();
+      seenClubsByMd.set(fx.matchday, clubsInMd);
+    }
+    if (clubsInMd.has(fx.home.id) || clubsInMd.has(fx.away.id)) continue;
+
+    seenPairings.add(pairKey);
+    clubsInMd.add(fx.home.id);
+    clubsInMd.add(fx.away.id);
+    dedupedFixtures.push(fx);
+  }
+
+  const liveFixtures = dedupedFixtures.filter((f) => f.status === "live");
+  const upcomingFixtures = dedupedFixtures.filter((f) => f.status === "upcoming").slice(0, 6);
   const displayItems = liveFixtures.length > 0 ? liveFixtures : upcomingFixtures;
 
   if (displayItems.length === 0) return null;

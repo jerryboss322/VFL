@@ -35,12 +35,66 @@ async def list_fixtures(
     )
     if target_league_id:
         stmt = stmt.where(Season.league_id == target_league_id)
+        # Isolate to active season for this league so previous or orphan seasons never bleed in
+        active_season_res = await session.execute(
+            select(Season.id)
+            .where(Season.league_id == target_league_id, Season.is_active == True)  # noqa: E712
+            .order_by(Season.created_at.desc())
+            .limit(1)
+        )
+        active_season_id = active_season_res.scalar_one_or_none()
+        if not active_season_id:
+            # Fall back to latest created season for this league
+            latest_season_res = await session.execute(
+                select(Season.id)
+                .where(Season.league_id == target_league_id)
+                .order_by(Season.created_at.desc())
+                .limit(1)
+            )
+            active_season_id = latest_season_res.scalar_one_or_none()
+        if active_season_id:
+            stmt = stmt.where(Fixture.season_id == active_season_id)
+
     if status:
         stmt = stmt.where(Fixture.status == status)
     if matchday is not None:
         stmt = stmt.where(Fixture.matchday == matchday)
     result = await session.execute(stmt)
-    return result.scalars().all()
+    fixtures = result.scalars().all()
+
+    # Deduplicate fixtures to guarantee every club plays at most once per matchday
+    # and no matchup is ever duplicated. Prioritize live > upcoming > completed.
+    status_priority = {"live": 0, "upcoming": 1, "completed": 2}
+    sorted_fixtures = sorted(
+        fixtures,
+        key=lambda fx: (
+            fx.matchday,
+            status_priority.get(fx.status, 3),
+            str(fx.id),
+        ),
+    )
+    deduped: list[Fixture] = []
+    seen_pairings_by_md: set[tuple[int, str]] = set()
+    seen_clubs_by_md: dict[int, set[str]] = {}
+
+    for fx in sorted_fixtures:
+        md = fx.matchday
+        c1, c2 = str(fx.home_club_id), str(fx.away_club_id)
+        pair_key = (md, "-".join(sorted([c1, c2])))
+        if pair_key in seen_pairings_by_md:
+            continue
+
+        clubs_in_md = seen_clubs_by_md.setdefault(md, set())
+        if c1 in clubs_in_md or c2 in clubs_in_md:
+            continue
+
+        seen_pairings_by_md.add(pair_key)
+        clubs_in_md.add(c1)
+        clubs_in_md.add(c2)
+        deduped.append(fx)
+
+    deduped.sort(key=lambda f: (f.matchday, str(f.id)))
+    return deduped
 
 
 @router.get("/{fixture_id}", response_model=FixtureDetailOut)

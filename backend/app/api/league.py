@@ -53,8 +53,37 @@ async def league_table(
     )
     if target_league_id:
         fx_stmt = fx_stmt.where(Season.league_id == target_league_id)
+        active_season_res = await session.execute(
+            select(Season.id)
+            .where(Season.league_id == target_league_id, Season.is_active == True)  # noqa: E712
+            .order_by(Season.created_at.desc())
+            .limit(1)
+        )
+        active_season_id = active_season_res.scalar_one_or_none()
+        if not active_season_id:
+            latest_season_res = await session.execute(
+                select(Season.id)
+                .where(Season.league_id == target_league_id)
+                .order_by(Season.created_at.desc())
+                .limit(1)
+            )
+            active_season_id = latest_season_res.scalar_one_or_none()
+        if active_season_id:
+            fx_stmt = fx_stmt.where(Fixture.season_id == active_season_id)
+
     result = await session.execute(fx_stmt)
     fixtures = result.scalars().all()
+
+    # Deduplicate fixtures so duplicate records in DB are never counted multiple times
+    seen_matches_by_md: set[tuple[int, str]] = set()
+    deduped_completed: list[Fixture] = []
+    for fx in fixtures:
+        pair_key = (fx.matchday, "-".join(sorted([str(fx.home_club_id), str(fx.away_club_id)])))
+        if pair_key in seen_matches_by_md:
+            continue
+        seen_matches_by_md.add(pair_key)
+        deduped_completed.append(fx)
+    fixtures = deduped_completed
 
     table: dict[str, dict] = {}
     for club in all_clubs:
