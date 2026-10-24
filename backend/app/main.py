@@ -215,9 +215,28 @@ for _prefix in ("", "/api"):
         url = settings.DATABASE_URL
         parts = urlsplit(url)
         host_safe = parts.netloc.split("@")[-1] if "@" in parts.netloc else parts.netloc
+
+        def _mask_url(raw: str | None) -> str | None:
+            if not raw:
+                return None
+            try:
+                p = urlsplit(raw)
+                host = p.netloc.split("@")[-1] if "@" in p.netloc else p.netloc
+                return f"{p.scheme}://***@{host}{p.path}"
+            except Exception:
+                return "invalid_url"
+
         info: dict = {
             "database_url_configured": bool(os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")),
-            "database_host": host_safe,
+            "resolved_database_host": host_safe,
+            "resolved_url_preview": _mask_url(url),
+            "env_hosts": {
+                "DATABASE_URL": _mask_url(os.environ.get("DATABASE_URL")),
+                "POSTGRES_URL": _mask_url(os.environ.get("POSTGRES_URL")),
+                "POSTGRES_URL_NON_POOLING": _mask_url(os.environ.get("POSTGRES_URL_NON_POOLING")),
+                "POSTGRES_HOST": os.environ.get("POSTGRES_HOST"),
+                "SUPABASE_URL": os.environ.get("SUPABASE_URL"),
+            },
             "db_env_keys": [k for k in os.environ if any(x in k.lower() for x in ["postgres", "database", "supabase"])],
             "points_to_localhost": "localhost" in url or "127.0.0.1" in url,
         }

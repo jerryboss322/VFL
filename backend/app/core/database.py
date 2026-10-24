@@ -21,9 +21,8 @@ def _normalize_db_url(raw: str) -> tuple[str, dict]:
     connect_args: dict = {}
     # asyncpg does not understand libpq-only params such as sslmode / channel_binding / pgbouncer
     sslmode = query.pop("sslmode", None)
-    query.pop("channel_binding", None)
-    query.pop("pgbouncer", None)
-    query.pop("supa", None)
+    for libpq_key in ("channel_binding", "pgbouncer", "supa", "target_session_attrs", "sslrootcert", "sslcert", "sslkey"):
+        query.pop(libpq_key, None)
     if sslmode and sslmode != "disable":
         connect_args["ssl"] = "require"
     elif "supabase" in parts.netloc or "neon" in parts.netloc:
