@@ -14,6 +14,7 @@ import math
 import random
 from datetime import datetime, timezone
 from typing import Any
+import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
