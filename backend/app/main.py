@@ -146,6 +146,29 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    err_msg = str(exc)
+    logging.exception("Unhandled server exception: %s", exc)
+    if "quota" in err_msg.lower():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "code": "DATABASE_QUOTA_EXCEEDED",
+                "message": "The Postgres database provider (Neon) has exceeded its quota limit. Upgrade your Neon plan or update DATABASE_URL with a new database in Vercel.",
+                "detail": err_msg,
+            },
+        )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": "INTERNAL_SERVER_ERROR",
+            "message": err_msg or "An unexpected server error occurred",
+            "detail": err_msg,
+        },
+    )
+
+
 for _prefix in ("", "/api"):
     _router = APIRouter(prefix=_prefix)
     _router.include_router(auth.router)
