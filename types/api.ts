@@ -86,6 +86,8 @@ export interface Market {
   key: MarketKey;
   category?: MarketCategory;
   label?: string;
+  suspended?: boolean;
+  locked?: boolean;
   options: OddsOption[];
 }
 export interface FixtureOdds {

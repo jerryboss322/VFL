@@ -533,7 +533,7 @@ def generate_fixture_markets(
     p_2h_btts_yes = sum(p for (h, a), p in h2_grid.items() if h >= 1 and a >= 1)
     p_2h_btts_no = max(0.02, 1.0 - p_2h_btts_yes)
 
-    return [
+    markets = [
         # ==================== 1. MATCH RESULT MARKETS ====================
         {
             "key": "match_winner",
@@ -826,6 +826,28 @@ def generate_fixture_markets(
             ],
         },
     ]
+
+    # Lock all 1st-half markets once the first half finishes (elapsed_seconds >= 240 / 45' HT)
+    FIRST_HALF_MARKETS = {
+        "half_time_result",
+        "first_half_btts",
+        "first_half_goals_ou",
+        "ht_correct_score",
+        "ht_ft",
+        "ht_ft_and_ou_2_5",
+    }
+    half_boundary = match_duration_seconds // 2
+    is_first_half_finished = is_live and elapsed_seconds >= half_boundary
+
+    if is_first_half_finished or suspended:
+        for m in markets:
+            if m.get("key") in FIRST_HALF_MARKETS:
+                m["suspended"] = True
+                m["locked"] = True
+                for opt in m.get("options", []):
+                    opt["suspended"] = True
+
+    return markets
 
 
 def _extract_goal_context(

@@ -753,7 +753,16 @@ export default function HomePage() {
                           (s) => s.fixtureId === fx.id && s.oddsId === opt.oddsId,
                         );
                         const isBettingOpen = isUpcoming || isLive;
-                        const disabled = !isBettingOpen || opt.suspended;
+                        const is1HMarket = [
+                          "half_time_result",
+                          "first_half_btts",
+                          "first_half_goals_ou",
+                          "ht_correct_score",
+                          "ht_ft",
+                          "ht_ft_and_ou_2_5",
+                        ].includes(displayedMarket.key);
+                        const is1HFinished = (fx.clockSeconds ?? 0) >= 240 || isCompleted;
+                        const disabled = !isBettingOpen || opt.suspended || (is1HMarket && is1HFinished);
                         const movement = oddsMovementMap[opt.oddsId];
                         let tag = opt.label;
                         if (opt.outcome === "home" || opt.outcome === "ht_home") tag = "1";
@@ -807,9 +816,13 @@ export default function HomePage() {
                               {tag}
                             </span>
                             <span className="flex items-center gap-0.5">
-                              <span className={`tnum font-bold ${selected ? "text-ink font-black" : "b365-odds-value"}`}>
-                                {opt.decimal.toFixed(2)}
-                              </span>
+                              {is1HMarket && is1HFinished ? (
+                                <span className="font-mono text-[9px] font-bold text-loss">LOCKED</span>
+                              ) : (
+                                <span className={`tnum font-bold ${selected ? "text-ink font-black" : "b365-odds-value"}`}>
+                                  {opt.decimal.toFixed(2)}
+                                </span>
+                              )}
                               {movement === "up" && (
                                 <span className="font-mono text-[9px] font-black text-[#00E701]" title="Odds lengthened">▲</span>
                               )}

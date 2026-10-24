@@ -176,6 +176,23 @@ async def place_bet(
         if option.get("suspended", False):
             raise BettingError("MARKET_SUSPENDED", "This selection is suspended", 409)
 
+        mkey = sel.get("market")
+        first_half_markets = {
+            "half_time_result",
+            "first_half_btts",
+            "first_half_goals_ou",
+            "ht_correct_score",
+            "ht_ft",
+            "ht_ft_and_ou_2_5",
+        }
+        if mkey in first_half_markets:
+            if (sel_fixture.clock_seconds or 0) >= 240 or sel_fixture.status == "completed":
+                raise BettingError(
+                    "MARKET_SUSPENDED",
+                    "The first half has ended. 1st-half betting is closed for this match.",
+                    409,
+                )
+
         leg_odds = Decimal(str(option.get("decimal", 1.0)))
         combined_decimal *= leg_odds
         opt_id = option.get("odds_id") or option.get("oddsId") or selection.odds_id

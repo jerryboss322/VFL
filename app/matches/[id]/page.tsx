@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/AppContext";
-import { BetBuilderStudio } from "@/components/BetBuilderStudio";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ClubBadge } from "@/components/ClubBadge";
 import { StatePanel } from "@/components/StatePanel";
@@ -16,7 +15,6 @@ import type {
   MarketCategory,
   MarketKey,
   MatchEvent,
-  ProbabilityExplanation,
 } from "@/types/api";
 
 function formatClock(clockSeconds: number | null | undefined, status: string): string {
@@ -45,7 +43,6 @@ export default function MatchDetailPage() {
   const prevOddsRef = useRef<FixtureOdds | null>(null);
   const prevGoalsRef = useRef<number | null>(null);
   const [events, setEvents] = useState<MatchEvent[]>([]);
-  const [explainer, setExplainer] = useState<ProbabilityExplanation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
@@ -60,11 +57,10 @@ export default function MatchDetailPage() {
 
   const loadData = useCallback(async () => {
     if (!fixtureId) return;
-    const [fxRes, oddsRes, evRes, expRes] = await Promise.all([
+    const [fxRes, oddsRes, evRes] = await Promise.all([
       api.fixtures.get(fixtureId),
       api.fixtures.odds(fixtureId),
       api.fixtures.events(fixtureId),
-      api.fixtures.explain(fixtureId),
     ]);
 
     if (!fxRes.ok) {
@@ -119,7 +115,6 @@ export default function MatchDetailPage() {
       setOdds(newOdds);
     }
     if (evRes.ok) setEvents(evRes.data);
-    if (expRes.ok) setExplainer(expRes.data);
     setError(null);
     setLoading(false);
   }, [fixtureId]);
@@ -631,140 +626,6 @@ export default function MatchDetailPage() {
         </div>
       </div>
 
-      {/* Probability Explainer & Odds Movement Tracker */}
-      {explainer && (
-        <section className="grid gap-4 lg:grid-cols-2">
-          {/* Probability Explainer */}
-          <div className="rounded-card border border-line bg-coal p-4">
-            <div className="flex items-center justify-between border-b border-line pb-2.5">
-              <h2 className="font-mono text-xs font-bold uppercase tracking-wider text-bone">
-                Probability Explainer (Poisson xG Model)
-              </h2>
-              <span className="font-mono text-[11px] text-peach">
-                Favoured: {explainer.favoredClub} (+{explainer.edgePercent}%)
-              </span>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center font-mono text-xs">
-              <div className="rounded-control border border-line bg-ink p-2.5">
-                <span className="block text-[10px] text-fog">HOME WIN</span>
-                <span className="tnum mt-0.5 block text-sm font-bold text-bone">
-                  {explainer.winProbabilities.home}%
-                </span>
-                <span className="tnum text-[10px] text-fog">
-                  xG {explainer.expectedGoals.home.toFixed(2)}
-                </span>
-              </div>
-              <div className="rounded-control border border-line bg-ink p-2.5">
-                <span className="block text-[10px] text-fog">DRAW</span>
-                <span className="tnum mt-0.5 block text-sm font-bold text-bone">
-                  {explainer.winProbabilities.draw}%
-                </span>
-                <span className="tnum text-[10px] text-fog">
-                  Total xG {explainer.expectedGoals.total.toFixed(2)}
-                </span>
-              </div>
-              <div className="rounded-control border border-line bg-ink p-2.5">
-                <span className="block text-[10px] text-fog">AWAY WIN</span>
-                <span className="tnum mt-0.5 block text-sm font-bold text-bone">
-                  {explainer.winProbabilities.away}%
-                </span>
-                <span className="tnum text-[10px] text-fog">
-                  xG {explainer.expectedGoals.away.toFixed(2)}
-                </span>
-              </div>
-            </div>
-
-            <ul className="mt-3 space-y-1.5 text-xs text-fog">
-              {explainer.factors.map((f, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="font-mono text-peach">•</span>
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Odds Movement Tracker & Top Scorelines */}
-          <div className="rounded-card border border-line bg-coal p-4">
-            <div className="flex items-center justify-between border-b border-line pb-2.5">
-              <h2 className="font-mono text-xs font-bold uppercase tracking-wider text-bone">
-                Odds Movement &amp; Scoreline Matrix
-              </h2>
-              <span className="font-mono text-[11px] text-fog">
-                O/U 2.5: {explainer.winProbabilities.over25}% • BTTS:{" "}
-                {explainer.winProbabilities.btts}%
-              </span>
-            </div>
-
-            {explainer.oddsMovement && (
-              <div className="mt-3 rounded-control border border-line bg-ink p-3">
-                <div className="grid grid-cols-3 gap-2 text-center font-mono text-xs">
-                  {(["home", "draw", "away"] as const).map((k) => {
-                    const openVal = explainer.oddsMovement!.opening[k];
-                    const curVal = explainer.oddsMovement!.current[k];
-                    const diff = curVal - openVal;
-                    return (
-                      <div key={k}>
-                        <span className="block text-[10px] uppercase text-fog">
-                          {k === "home"
-                            ? fixture.home.shortName
-                            : k === "away"
-                              ? fixture.away.shortName
-                              : "DRAW"}
-                        </span>
-                        <span className="tnum font-bold text-bone">
-                          {openVal.toFixed(2)} → {curVal.toFixed(2)}
-                        </span>
-                        <span
-                          className={`tnum block text-[10px] ${
-                            diff < 0
-                              ? "text-win"
-                              : diff > 0
-                                ? "text-loss"
-                                : "text-fog"
-                          }`}
-                        >
-                          {diff < 0 ? "▼ Shortening" : diff > 0 ? "▲ Drifting" : "• Stable"}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="mt-2 border-t border-line pt-2 font-mono text-[11px] text-fog">
-                  Driver: {explainer.oddsMovement.reason}
-                </p>
-              </div>
-            )}
-
-            <div className="mt-3">
-              <span className="block font-mono text-[10px] uppercase tracking-wider text-fog">
-                MOST PROBABLE FULL-TIME SCORELINES:
-              </span>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {explainer.mostLikelyScorelines.map((s) => (
-                  <span
-                    key={s.score}
-                    className="tnum rounded-control border border-line bg-graphite px-2.5 py-1 font-mono text-xs text-bone"
-                  >
-                    {s.score}{" "}
-                    <span className="text-peach">({s.probability}%)</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Betfair-Style Same-Game Multi Bet Builder Studio */}
-      <BetBuilderStudio
-        fixture={fixture}
-        odds={odds}
-        slip={slip}
-        onToggleSlip={toggleSlipSelection}
-      />
-
       {/* 27 Betting Markets Suite with Category Filter */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-coal p-3.5">
@@ -810,6 +671,17 @@ export default function MatchDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {filteredMarkets.map((market) => {
               const isGridMarket = market.options.length > 4;
+              const is1HMarket = [
+                "half_time_result",
+                "first_half_btts",
+                "first_half_goals_ou",
+                "ht_correct_score",
+                "ht_ft",
+                "ht_ft_and_ou_2_5",
+              ].includes(market.key);
+              const is1HFinished = (fixture.clockSeconds ?? 0) >= 240 || isCompleted;
+              const isMarketLocked = (is1HMarket && is1HFinished) || market.suspended;
+
               return (
                 <div
                   key={market.key}
@@ -821,11 +693,18 @@ export default function MatchDetailPage() {
                     <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-bone">
                       {market.label || market.key.replace(/_/g, " ")}
                     </h3>
-                    {market.category && (
-                      <span className="rounded-control bg-graphite px-2 py-0.5 font-mono text-[10px] uppercase text-fog">
-                        {market.category}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {is1HMarket && is1HFinished && (
+                        <span className="rounded bg-loss/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-loss border border-loss/40">
+                          🔒 1H Closed
+                        </span>
+                      )}
+                      {market.category && (
+                        <span className="rounded-control bg-graphite px-2 py-0.5 font-mono text-[10px] uppercase text-fog">
+                          {market.category}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div
                     className={`mt-3 grid gap-2 ${
@@ -841,7 +720,7 @@ export default function MatchDetailPage() {
                         (s) => s.fixtureId === fixture.id && s.oddsId === opt.oddsId,
                       );
                       const isBettingOpen = isUpcoming || isLive;
-                      const disabled = !isBettingOpen || opt.suspended;
+                      const disabled = !isBettingOpen || opt.suspended || (is1HMarket && is1HFinished);
                       const movement = oddsMovementMap[opt.oddsId];
                       return (
                         <button
@@ -864,7 +743,7 @@ export default function MatchDetailPage() {
                             selected
                               ? "border-accent bg-accent/15 text-accent font-bold"
                               : disabled
-                                ? "cursor-not-allowed border-line bg-ink/40 text-fog/40"
+                                ? "cursor-not-allowed border-line/40 bg-ink/30 text-fog/30"
                                 : movement === "up"
                                   ? "border-win bg-win/10 text-win odds-flash-up"
                                   : movement === "down"
@@ -876,12 +755,20 @@ export default function MatchDetailPage() {
                             {opt.label}
                           </span>
                           <span className="tnum shrink-0 font-mono font-bold flex items-center gap-1">
-                            <span>{opt.decimal.toFixed(2)}</span>
-                            {movement === "up" && (
-                              <span className="font-mono text-[9px] font-black text-win animate-bounce" title="Odds drifted out">▲</span>
-                            )}
-                            {movement === "down" && (
-                              <span className="font-mono text-[9px] font-black text-loss animate-bounce" title="Odds shortened">▼</span>
+                            {is1HMarket && is1HFinished ? (
+                              <span className="rounded bg-loss/15 px-1.5 py-0.5 font-mono text-[9px] font-bold text-loss">
+                                🔒 LOCKED
+                              </span>
+                            ) : (
+                              <>
+                                <span>{opt.decimal.toFixed(2)}</span>
+                                {movement === "up" && (
+                                  <span className="font-mono text-[9px] font-black text-win animate-bounce" title="Odds drifted out">▲</span>
+                                )}
+                                {movement === "down" && (
+                                  <span className="font-mono text-[9px] font-black text-loss animate-bounce" title="Odds shortened">▼</span>
+                                )}
+                              </>
                             )}
                           </span>
                         </button>
