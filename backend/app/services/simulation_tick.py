@@ -226,39 +226,43 @@ async def _ensure_infinite_upcoming_fixtures(session, now: datetime, pre_match: 
                     if home.id in booked_clubs or away.id in booked_clubs:
                         continue  # Already playing on this matchday
 
-                    fx = Fixture(
-                        season_id=season.id,
-                        home_club_id=home.id,
-                        away_club_id=away.id,
-                        matchday=target_md,
-                        kickoff_at=ko_time.isoformat(),
-                        status="upcoming",
-                    )
-                    session.add(fx)
-                    await session.flush()
-                    booked_clubs.add(home.id)
-                    booked_clubs.add(away.id)
+                    try:
+                        async with session.begin_nested():
+                            fx = Fixture(
+                                season_id=season.id,
+                                home_club_id=home.id,
+                                away_club_id=away.id,
+                                matchday=target_md,
+                                kickoff_at=ko_time.isoformat(),
+                                status="upcoming",
+                            )
+                            session.add(fx)
+                            await session.flush()
+                            booked_clubs.add(home.id)
+                            booked_clubs.add(away.id)
 
-                    markets = generate_fixture_markets(
-                        fixture_id=fx.id,
-                        home_name=home.name,
-                        away_name=away.name,
-                        home_attack=home.attack_rating,
-                        home_defense=home.defense_rating,
-                        away_attack=away.attack_rating,
-                        away_defense=away.defense_rating,
-                        version=1,
-                        suspended=False,
-                    )
-                    session.add(
-                        OddsSnapshot(
-                            fixture_id=fx.id,
-                            version=1,
-                            markets=markets,
-                            is_active=True,
-                        )
-                    )
-                    created_any = True
+                            markets = generate_fixture_markets(
+                                fixture_id=fx.id,
+                                home_name=home.name,
+                                away_name=away.name,
+                                home_attack=home.attack_rating,
+                                home_defense=home.defense_rating,
+                                away_attack=away.attack_rating,
+                                away_defense=away.defense_rating,
+                                version=1,
+                                suspended=False,
+                            )
+                            session.add(
+                                OddsSnapshot(
+                                    fixture_id=fx.id,
+                                    version=1,
+                                    markets=markets,
+                                    is_active=True,
+                                )
+                            )
+                            created_any = True
+                    except Exception:
+                        continue
 
     if created_any:
         await session.commit()
