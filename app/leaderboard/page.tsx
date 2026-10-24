@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { StatePanel } from "@/components/StatePanel";
 import { api } from "@/lib/api/client";
 import { formatMinor } from "@/lib/betslip";
@@ -48,6 +49,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs items={[{ label: "Leaderboard" }]} />
       <div className="pitch-grid rounded-card border border-line bg-coal p-5">
         <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-peach">
           TRADER RANKINGS &amp; PREDICTION CONTESTS

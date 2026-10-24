@@ -16,6 +16,10 @@ class PlaceBetRequest(DualCaseModel):
     idempotency_key: str = Field(min_length=1)
 
 
+class CashoutRequest(DualCaseModel):
+    percentage: int = Field(default=100, ge=1, le=100)
+
+
 class BetSelectionOut(DualCaseModel):
     fixture_id: str
     market: str

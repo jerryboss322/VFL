@@ -23,6 +23,7 @@ Authentication: Supports **both** `httpOnly` cookie (`vfu_session`) for browser 
 | **Matches** | `POST /matches/{id}/start` | No* | Initialize and start a match simulation |
 | **Matches** | `POST /matches/{id}/simulate` | No* | Fast-forward or advance a match simulation & trigger settlement |
 | **Bets** | `POST /bets` | Yes | Place a single or accumulator bet (`selections`, `stakeMinor`, `idempotencyKey`) |
+| **Bets** | `POST /bets/{id}/cashout` | Yes | Full or partial cash out (optional `{ percentage: 25|50|75|100 }`, default `100`) |
 | **Bets** | `GET /bets?status=` | Yes | List current user's bets |
 | **Wallet** | `GET /wallet` | Yes | Get current user's wallet (`availableMinor`, `reservedMinor`, `currency`, `simulated`) |
 | **Wallet** | `GET /wallet/transactions` | Yes | List immutable ledger entries for current user |

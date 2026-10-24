@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ClubBadge } from "@/components/ClubBadge";
 import { StatePanel } from "@/components/StatePanel";
 import { api } from "@/lib/api/client";
@@ -55,14 +56,15 @@ export default function ClubProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between font-mono text-xs">
-        <Link
-          href="/table"
-          className="inline-flex items-center gap-1.5 text-fog transition-colors hover:text-peach"
-        >
-          ← STANDINGS
-        </Link>
-        <span className="text-fog">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Breadcrumbs
+          items={[
+            { label: "Standings", href: "/table" },
+            { label: league?.name ?? "League", href: "/table" },
+            { label: club.name },
+          ]}
+        />
+        <span className="font-mono text-[11px] text-fog">
           {league?.country ?? "EUROPE"} • {league?.name ?? "CLUB PROFILE"}
         </span>
       </div>

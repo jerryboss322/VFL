@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/AppContext";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { StatePanel } from "@/components/StatePanel";
 import { api } from "@/lib/api/client";
 import { formatMinor } from "@/lib/betslip";
@@ -89,6 +90,8 @@ export default function WalletPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs items={[{ label: "Wallet & Ledger" }]} />
+
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-card border border-line bg-coal p-4">
           <p className="font-mono text-[11px] uppercase tracking-wider text-fog">

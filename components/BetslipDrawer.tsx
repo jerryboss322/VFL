@@ -3,8 +3,10 @@
 import Link from "next/link";
 import React, { useState } from "react";
 import { useApp } from "@/components/AppContext";
+import { CashoutSlider } from "@/components/CashoutSlider";
 import { api } from "@/lib/api/client";
 import { combinedOdds, displayReturnMinor, formatMinor, stakeError } from "@/lib/betslip";
+import { playBetPlacedSound, playCashOutSound } from "@/lib/sound";
 
 const QUICK_STAKES_MAJOR = [10, 50, 100, 250];
 
@@ -76,6 +78,7 @@ export function BetslipDrawer() {
         res.data.selections.length === 1 ? "leg" : "legs"
       } @ ${res.data.recordedOdds.toFixed(2)}`,
     );
+    playBetPlacedSound();
     clearSlip();
     notifyBetPlaced();
     setActiveTab("open");
@@ -87,11 +90,12 @@ export function BetslipDrawer() {
     setRefreshingOpen(false);
   }
 
-  async function handleCashOut(betId: string) {
+  async function handleCashOut(betId: string, percentage: number = 100) {
     setCashingOutId(betId);
-    const res = await api.bets.cashout(betId);
+    const res = await api.bets.cashout(betId, percentage);
     setCashingOutId(null);
     if (res.ok) {
+      playCashOutSound();
       await refreshAccount();
     }
   }
@@ -126,6 +130,7 @@ export function BetslipDrawer() {
 
   return (
     <aside
+      id="betslip-container"
       aria-label="Betting Tickets and Open Bets"
       className="b365-card overflow-hidden"
     >
@@ -217,6 +222,19 @@ export function BetslipDrawer() {
             </div>
           ) : (
             <form onSubmit={handlePlaceBet} className="space-y-3.5 p-3.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-mono text-[11px] font-bold text-[#A3ACB5] uppercase">
+                  {slip.length === 1 ? "Single Leg" : `${slip.length}-Fold Accumulator`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => clearSlip()}
+                  className="font-mono text-[10px] uppercase tracking-wider text-[#A3ACB5] hover:text-[#ED4245] transition-colors"
+                >
+                  Clear All
+                </button>
+              </div>
+
               <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
                 {slip.map((s) => (
                   <li
@@ -287,17 +305,30 @@ export function BetslipDrawer() {
                     XTS
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-5 gap-1">
                   {QUICK_STAKES_MAJOR.map((amt) => (
                     <button
                       key={amt}
                       type="button"
                       onClick={() => setStakeMajorInput(String(amt))}
-                      className="tnum min-h-[32px] rounded border border-[#2B3036] bg-[#2B3036] px-2 py-1 font-mono text-xs font-medium text-white transition-colors hover:border-[#F9DC1C] hover:bg-[#383E45]"
+                      className="tnum min-h-[32px] rounded border border-[#2B3036] bg-[#2B3036] px-1 py-1 font-mono text-xs font-medium text-white transition-colors hover:border-[#F9DC1C] hover:bg-[#383E45]"
                     >
-                      +{amt}
+                      {amt}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (wallet) {
+                        setStakeMajorInput(
+                          String(Math.min(5000, Math.floor(wallet.availableMinor / 100))),
+                        );
+                      }
+                    }}
+                    className="tnum min-h-[32px] rounded border border-[#F9DC1C]/50 bg-[#0B3E2F] px-1 py-1 font-mono text-xs font-bold text-[#F9DC1C] transition-colors hover:bg-[#005A42]"
+                  >
+                    MAX
+                  </button>
                 </div>
               </div>
 
@@ -420,16 +451,13 @@ export function BetslipDrawer() {
                     </div>
 
                     <div className="mt-2 pt-1">
-                      <button
-                        type="button"
+                      <CashoutSlider
+                        betId={bet.id}
+                        stakeMinor={bet.stakeMinor}
+                        recordedOdds={Number(bet.recordedOdds)}
                         disabled={cashingOutId === bet.id}
-                        onClick={() => void handleCashOut(bet.id)}
-                        className="w-full rounded-control border border-peach/50 bg-peach-dim py-1.5 font-mono text-[11px] font-bold text-peach transition-opacity hover:opacity-90 disabled:opacity-50"
-                      >
-                        {cashingOutId === bet.id
-                          ? "Settling Cash Out..."
-                          : `Cash Out ${formatMinor(Math.round(bet.stakeMinor * 0.92))}`}
-                      </button>
+                        onCashOut={handleCashOut}
+                      />
                     </div>
                   </li>
                 );

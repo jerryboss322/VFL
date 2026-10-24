@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useApp } from "@/components/AppContext";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ClubBadge } from "@/components/ClubBadge";
 import { StatePanel } from "@/components/StatePanel";
 import { api } from "@/lib/api/client";
@@ -55,8 +56,10 @@ export default function LeagueTablePage() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumbs items={[{ label: "Standings", href: "/table" }, { label: selectedLeague?.name ?? "League" }]} />
+
       <div className="pitch-grid rounded-card border border-line bg-coal p-5">
-        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-peach">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-accent">
           {selectedLeague?.country ?? "EUROPE"} • OFFICIAL STANDINGS
         </span>
         <h1 className="mt-1 text-lg font-bold text-bone">

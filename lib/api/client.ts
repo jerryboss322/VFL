@@ -505,7 +505,8 @@ export const api = {
   bets: {
     place: (b: PlaceBetRequest) => request<Bet>("/bets", post(b)),
     list: (status?: BetStatus) => request<Bet[]>(`/bets${status ? `?status=${status}` : ""}`),
-    cashout: (betId: string) => request<Bet>(`/bets/${betId}/cashout`, post()),
+    cashout: (betId: string, percentage?: number) =>
+      request<Bet>(`/bets/${betId}/cashout`, post(percentage ? { percentage } : undefined)),
   },
   wallet: {
     get: () => request<Wallet>("/wallet"),

@@ -9,7 +9,7 @@ from app.models.bet import Bet
 from app.models.fixture import Fixture
 from app.models.odds import OddsSnapshot
 from app.models.user import User
-from app.schemas.bet import BetOut, PlaceBetRequest
+from app.schemas.bet import BetOut, CashoutRequest, PlaceBetRequest
 from app.services.betting import (
     BettingError,
     _extract_fixture_id_from_odds_id,
@@ -104,6 +104,7 @@ async def list_bets(
 @router.post("/{bet_id}/cashout", response_model=BetOut)
 async def cashout_bet_endpoint(
     bet_id: str,
+    request: CashoutRequest | None = None,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -114,8 +115,9 @@ async def cashout_bet_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "Bet not found"},
         )
+    percentage = request.percentage if request else 100
     try:
-        return await cashout_bet(session, current_user, bet)
+        return await cashout_bet(session, current_user, bet, percentage=percentage)
     except BettingError as e:
         raise HTTPException(
             status_code=e.status_code,

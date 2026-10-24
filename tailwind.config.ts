@@ -15,6 +15,8 @@ const config: Config = {
         "brand-dark": "#0B3E2F",// In-play section header green
         accent: "#F9DC1C",     // Bet365 Signature Sundance Yellow
         "accent-gold": "#FFDF00", // High-visibility odds yellow
+        peach: "#F9DC1C",      // Legacy highlight mapped to signature accent
+        "peach-dim": "#2B2816",// Muted gold background
         live: "#FE2247",       // Live In-Play Indicator
         win: "#00E701",        // Winning ledger green
         loss: "#ED4245",

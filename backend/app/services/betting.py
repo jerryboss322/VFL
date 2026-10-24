@@ -348,12 +348,15 @@ async def cashout_bet(
     session: AsyncSession,
     user: User,
     bet: Bet,
+    percentage: int = 100,
 ) -> dict[str, Any]:
-    """Early Cash-Out for a pending bet: releases reserved stake and credits a fair buyout."""
+    """Early Cash-Out for a pending bet: releases reserved stake and credits a fair buyout (full or partial)."""
     if bet.user_id != user.id:
         raise BettingError("FORBIDDEN", "Not your bet", 403)
     if bet.status != "pending":
         raise BettingError("INVALID_STATE", f"Bet is already {bet.status}", 409)
+    if percentage < 1 or percentage > 100:
+        raise BettingError("INVALID_PERCENTAGE", "Cashout percentage must be between 1 and 100", 400)
 
     result = await session.execute(
         select(Wallet).where(Wallet.user_id == bet.user_id).with_for_update()
@@ -362,17 +365,32 @@ async def cashout_bet(
     if wallet is None:
         raise BettingError("INSUFFICIENT_FUNDS", "No wallet found", 409)
 
-    # Calculate fair cash-out buyout (92% of original stake pre-match / in-play baseline)
+    cashed_stake_minor = int(
+        (Decimal(bet.stake_minor) * (Decimal(percentage) / Decimal(100))).to_integral_value(rounding=ROUND_HALF_UP)
+    )
+    if cashed_stake_minor <= 0:
+        cashed_stake_minor = 1
+
+    # Calculate fair cash-out buyout (92% of cashed stake)
     cashout_minor = int(
-        (Decimal(bet.stake_minor) * Decimal("0.92")).to_integral_value(rounding=ROUND_HALF_UP)
+        (Decimal(cashed_stake_minor) * Decimal("0.92")).to_integral_value(rounding=ROUND_HALF_UP)
     )
 
-    wallet.reserved_minor = max(0, wallet.reserved_minor - bet.stake_minor)
+    wallet.reserved_minor = max(0, wallet.reserved_minor - cashed_stake_minor)
     wallet.available_minor += cashout_minor
 
-    bet.status = "void"
-    bet.return_minor = cashout_minor
-    bet.settled_at = _now_iso()
+    if percentage >= 100 or cashed_stake_minor >= bet.stake_minor:
+        bet.status = "void"
+        bet.return_minor = (bet.return_minor or 0) + cashout_minor
+        bet.settled_at = _now_iso()
+        desc = f"Early Cash-Out settled ({cashout_minor} minor units credited)"
+        ref = f"cashout:{bet.id}"
+    else:
+        # Partial Cash-Out: deduct cashed stake, leave remaining stake pending
+        bet.stake_minor -= cashed_stake_minor
+        bet.return_minor = (bet.return_minor or 0) + cashout_minor
+        desc = f"Partial Cash-Out ({percentage}%): {cashout_minor} credited, {bet.stake_minor} stake remains active"
+        ref = f"cashout:{bet.id}:{percentage}%"
 
     session.add(
         LedgerEntry(
@@ -382,8 +400,8 @@ async def cashout_bet(
             kind="cashout_settlement",
             amount_minor=cashout_minor,
             balance_after_minor=wallet.available_minor,
-            description=f"Early Cash-Out settled ({cashout_minor} minor units credited)",
-            reference=f"cashout:{bet.id}",
+            description=desc,
+            reference=ref,
         )
     )
 

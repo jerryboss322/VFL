@@ -7,6 +7,7 @@ import { ClubBadge } from "@/components/ClubBadge";
 import { StatePanel } from "@/components/StatePanel";
 import { api } from "@/lib/api/client";
 import { LEAGUE_LOGOS } from "@/lib/clubLogos";
+import { playGoalChime } from "@/lib/sound";
 
 import type {
   Fixture,
@@ -35,8 +36,10 @@ export default function HomePage() {
     useApp();
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [oddsMap, setOddsMap] = useState<Record<string, FixtureOdds>>({});
+  const [oddsMovementMap, setOddsMovementMap] = useState<Record<string, "up" | "down">>({});
   const fetchedOddsIdsRef = useRef<Set<string>>(new Set());
   const prevHadLiveRef = useRef<boolean>(false);
+  const prevLiveGoalsSumRef = useRef<number | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +94,15 @@ export default function HomePage() {
       );
       setFixtures(sorted);
       setLoading(false);
+
+      // Audio Telemetry: Detect live goals scored and play celebration chime
+      const liveGoalsSum = sorted
+        .filter((x) => x.status === "live")
+        .reduce((acc, x) => acc + (x.homeGoals ?? 0) + (x.awayGoals ?? 0), 0);
+      if (!isInitial && prevLiveGoalsSumRef.current !== null && liveGoalsSum > prevLiveGoalsSumRef.current) {
+        playGoalChime();
+      }
+      prevLiveGoalsSumRef.current = liveGoalsSum;
 
       const currentlyHasLive = sorted.some((x) => x.status === "live");
       // Only refresh wallet/openBets once when a live matchday finishes and settles
@@ -177,28 +189,69 @@ export default function HomePage() {
   }, [fixtures, selectedMatchday, statusFilter, favOnly, favoriteClubs, searchQuery]);
 
   useEffect(() => {
-    async function loadMissingOdds() {
-      const missing = visibleFixtures.filter(
-        (f) => !fetchedOddsIdsRef.current.has(f.id),
+    async function loadOddsData() {
+      // Fetch missing odds and refresh active/live fixtures
+      const targets = visibleFixtures.filter(
+        (f) => !fetchedOddsIdsRef.current.has(f.id) || f.status === "live",
       );
-      if (missing.length === 0) return;
-      missing.forEach((f) => fetchedOddsIdsRef.current.add(f.id));
+      if (targets.length === 0) return;
+      targets.forEach((f) => fetchedOddsIdsRef.current.add(f.id));
 
       const results = await Promise.all(
-        missing.map(async (fx) => {
+        targets.map(async (fx) => {
           const r = await api.fixtures.odds(fx.id);
           return r.ok ? ([fx.id, r.data] as const) : null;
         }),
       );
+
       setOddsMap((prev) => {
         const next = { ...prev };
+        const movements: Record<string, "up" | "down"> = {};
+
         for (const item of results) {
-          if (item) next[item[0]] = item[1];
+          if (!item) continue;
+          const [fxId, newOdds] = item;
+          const oldOdds = prev[fxId];
+
+          if (oldOdds) {
+            for (const newMarket of newOdds.markets) {
+              const oldMarket = oldOdds.markets.find((m) => m.key === newMarket.key);
+              if (!oldMarket) continue;
+              for (const newOpt of newMarket.options) {
+                const oldOpt = oldMarket.options.find(
+                  (o) => o.oddsId === newOpt.oddsId || o.outcome === newOpt.outcome,
+                );
+                if (oldOpt && oldOpt.decimal !== newOpt.decimal) {
+                  movements[newOpt.oddsId] = newOpt.decimal > oldOpt.decimal ? "up" : "down";
+                }
+              }
+            }
+          }
+          next[fxId] = newOdds;
         }
+
+        if (Object.keys(movements).length > 0) {
+          setOddsMovementMap((current) => ({ ...current, ...movements }));
+          setTimeout(() => {
+            setOddsMovementMap((current) => {
+              const updated = { ...current };
+              for (const k of Object.keys(movements)) {
+                delete updated[k];
+              }
+              return updated;
+            });
+          }, 1800);
+        }
+
         return next;
       });
     }
-    void loadMissingOdds();
+
+    void loadOddsData();
+    const interval = setInterval(() => {
+      void loadOddsData();
+    }, 4000);
+    return () => clearInterval(interval);
   }, [visibleFixtures]);
 
   if (loading) {
@@ -613,6 +666,7 @@ export default function HomePage() {
                           (s) => s.fixtureId === fx.id && s.oddsId === opt.oddsId,
                         );
                         const disabled = !isUpcoming || opt.suspended;
+                        const movement = oddsMovementMap[opt.oddsId];
                         let tag = opt.label;
                         if (opt.outcome === "home" || opt.outcome === "ht_home") tag = "1";
                         else if (opt.outcome === "draw" || opt.outcome === "ht_draw") tag = "X";
@@ -654,14 +708,26 @@ export default function HomePage() {
                                 ? "bg-[#F9DC1C] border border-[#F9DC1C] text-[#121212] font-black"
                                 : disabled
                                   ? "bg-[#16181B]/50 border border-transparent text-[#A3ACB5]/30 cursor-not-allowed"
-                                  : "b365-odds-btn"
+                                  : movement === "up"
+                                    ? "b365-odds-btn odds-flash-up"
+                                    : movement === "down"
+                                      ? "b365-odds-btn odds-flash-down"
+                                      : "b365-odds-btn"
                             }`}
                           >
                             <span className={selected ? "text-[#121212]/80 font-bold text-[10px]" : "text-[#A3ACB5] text-[10px]"}>
                               {tag}
                             </span>
-                            <span className={`tnum font-bold ${selected ? "text-[#121212] font-black" : "b365-odds-value"}`}>
-                              {opt.decimal.toFixed(2)}
+                            <span className="flex items-center gap-0.5">
+                              <span className={`tnum font-bold ${selected ? "text-[#121212] font-black" : "b365-odds-value"}`}>
+                                {opt.decimal.toFixed(2)}
+                              </span>
+                              {movement === "up" && (
+                                <span className="font-mono text-[9px] font-black text-[#00E701]" title="Odds lengthened">▲</span>
+                              )}
+                              {movement === "down" && (
+                                <span className="font-mono text-[9px] font-black text-[#ED4245]" title="Odds shortened">▼</span>
+                              )}
                             </span>
                           </button>
                         );

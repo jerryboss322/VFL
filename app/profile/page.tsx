@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/AppContext";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { StatePanel } from "@/components/StatePanel";
 import { api } from "@/lib/api/client";
 import { formatMinor } from "@/lib/betslip";
@@ -157,6 +158,8 @@ export default function TraderProfilePage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs items={[{ label: "Trader Profile" }]} />
+
       {/* Trader Identity Banner */}
       <section className="pitch-grid rounded-card border border-line bg-coal p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">

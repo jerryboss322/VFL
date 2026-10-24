@@ -82,6 +82,41 @@
   font-weight: 800;
 }
 
+/* Live Odds Movement Flash Animations (Betfair exchange style) */
+@keyframes oddsFlashUp {
+  0% {
+    background-color: rgba(0, 231, 1, 0.3);
+    border-color: #00E701;
+    color: #00E701;
+  }
+  100% {
+    background-color: inherit;
+    border-color: inherit;
+  }
+}
+
+@keyframes oddsFlashDown {
+  0% {
+    background-color: rgba(237, 66, 69, 0.3);
+    border-color: #ED4245;
+    color: #ED4245;
+  }
+  100% {
+    background-color: inherit;
+    border-color: inherit;
+  }
+}
+
+.odds-flash-up {
+  animation: oddsFlashUp 1.8s ease-out;
+  border-color: #00E701 !important;
+}
+
+.odds-flash-down {
+  animation: oddsFlashDown 1.8s ease-out;
+  border-color: #ED4245 !important;
+}
+
 /* Score cell */
 .b365-score {
   background-color: #16181B;

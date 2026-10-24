@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/AppContext";
+import { BetBuilderStudio } from "@/components/BetBuilderStudio";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ClubBadge } from "@/components/ClubBadge";
 import { StatePanel } from "@/components/StatePanel";
 import { api } from "@/lib/api/client";
+import { playGoalChime, playWhistleSound } from "@/lib/sound";
 import type {
   Fixture,
   FixtureOdds,
@@ -38,6 +41,9 @@ export default function MatchDetailPage() {
 
   const [fixture, setFixture] = useState<Fixture | null>(null);
   const [odds, setOdds] = useState<FixtureOdds | null>(null);
+  const [oddsMovementMap, setOddsMovementMap] = useState<Record<string, "up" | "down">>({});
+  const prevOddsRef = useRef<FixtureOdds | null>(null);
+  const prevGoalsRef = useRef<number | null>(null);
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [explainer, setExplainer] = useState<ProbabilityExplanation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,8 +74,50 @@ export default function MatchDetailPage() {
       return;
     }
 
-    setFixture(fxRes.data);
-    if (oddsRes.ok) setOdds(oddsRes.data);
+    const fx = fxRes.data;
+    setFixture(fx);
+    if (fx.status === "live") {
+      const totalGoals = (fx.homeGoals ?? 0) + (fx.awayGoals ?? 0);
+      if (prevGoalsRef.current !== null && totalGoals > prevGoalsRef.current) {
+        playGoalChime();
+      }
+      prevGoalsRef.current = totalGoals;
+    } else {
+      prevGoalsRef.current = null;
+    }
+    if (oddsRes.ok) {
+      const newOdds = oddsRes.data;
+      const oldOdds = prevOddsRef.current;
+      if (oldOdds) {
+        const movements: Record<string, "up" | "down"> = {};
+        for (const newMarket of newOdds.markets) {
+          const oldMarket = oldOdds.markets.find((m) => m.key === newMarket.key);
+          if (!oldMarket) continue;
+          for (const newOpt of newMarket.options) {
+            const oldOpt = oldMarket.options.find(
+              (o) => o.oddsId === newOpt.oddsId || o.outcome === newOpt.outcome,
+            );
+            if (oldOpt && oldOpt.decimal !== newOpt.decimal) {
+              movements[newOpt.oddsId] = newOpt.decimal > oldOpt.decimal ? "up" : "down";
+            }
+          }
+        }
+        if (Object.keys(movements).length > 0) {
+          setOddsMovementMap((current) => ({ ...current, ...movements }));
+          setTimeout(() => {
+            setOddsMovementMap((current) => {
+              const updated = { ...current };
+              for (const k of Object.keys(movements)) {
+                delete updated[k];
+              }
+              return updated;
+            });
+          }, 1800);
+        }
+      }
+      prevOddsRef.current = newOdds;
+      setOdds(newOdds);
+    }
     if (evRes.ok) setEvents(evRes.data);
     if (expRes.ok) setExplainer(expRes.data);
     setError(null);
@@ -220,15 +268,16 @@ export default function MatchDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Top Breadcrumb */}
-      <div className="flex items-center justify-between font-mono text-xs">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-fog transition-colors hover:text-peach"
-        >
-          ← MATCH CENTER
-        </Link>
-        <span className="text-fog">
+      {/* Top Breadcrumbs */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Breadcrumbs
+          items={[
+            { label: "Matches", href: "/" },
+            { label: `MD ${fixture.matchday}` },
+            { label: `${fixture.home.shortName} vs ${fixture.away.shortName}` },
+          ]}
+        />
+        <span className="font-mono text-[11px] text-fog">
           MATCHDAY {fixture.matchday} • 27 MARKETS ACTIVE
         </span>
       </div>
@@ -651,6 +700,14 @@ export default function MatchDetailPage() {
         </section>
       )}
 
+      {/* Betfair-Style Same-Game Multi Bet Builder Studio */}
+      <BetBuilderStudio
+        fixture={fixture}
+        odds={odds}
+        slip={slip}
+        onToggleSlip={toggleSlipSelection}
+      />
+
       {/* 27 Betting Markets Suite with Category Filter */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-coal p-3.5">
@@ -726,6 +783,7 @@ export default function MatchDetailPage() {
                         (s) => s.fixtureId === fixture.id && s.oddsId === opt.oddsId,
                       );
                       const disabled = !isUpcoming || opt.suspended;
+                      const movement = oddsMovementMap[opt.oddsId];
                       return (
                         <button
                           key={opt.oddsId}
@@ -745,17 +803,27 @@ export default function MatchDetailPage() {
                           }
                           className={`flex min-h-[42px] w-full items-center justify-between gap-2 rounded-control border px-3 py-2 text-xs transition-colors ${
                             selected
-                              ? "border-peach bg-peach-dim text-peach"
+                              ? "border-accent bg-accent/15 text-accent font-bold"
                               : disabled
                                 ? "cursor-not-allowed border-line bg-ink/40 text-fog/40"
-                                : "border-line bg-graphite text-bone hover:border-peach/60"
+                                : movement === "up"
+                                  ? "border-win bg-win/10 text-win odds-flash-up"
+                                  : movement === "down"
+                                    ? "border-loss bg-loss/10 text-loss odds-flash-down"
+                                    : "border-line bg-graphite text-bone hover:border-accent/60"
                           }`}
                         >
                           <span className="truncate text-left font-medium">
                             {opt.label}
                           </span>
-                          <span className="tnum shrink-0 font-mono font-bold">
-                            {opt.decimal.toFixed(2)}
+                          <span className="tnum shrink-0 font-mono font-bold flex items-center gap-1">
+                            <span>{opt.decimal.toFixed(2)}</span>
+                            {movement === "up" && (
+                              <span className="font-mono text-[9px] font-black text-win animate-bounce" title="Odds drifted out">▲</span>
+                            )}
+                            {movement === "down" && (
+                              <span className="font-mono text-[9px] font-black text-loss animate-bounce" title="Odds shortened">▼</span>
+                            )}
                           </span>
                         </button>
                       );
