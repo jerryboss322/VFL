@@ -43,6 +43,9 @@ class BetOut(DualCaseModel):
     placed_at: datetime | str
     settled_at: datetime | str | None = None
     return_minor: int | None = None
+    cashout_value_minor: int | None = None
+    current_odds: float | None = None
+    cashout_available: bool = True
     selections: list[BetSelectionOut]
 
     @field_validator("id", mode="before")

@@ -505,15 +505,12 @@ export default function HomePage() {
               [
                 { key: "match_winner", label: "Full Time Result" },
                 { key: "double_chance", label: "Double Chance" },
-                { key: "draw_no_bet", label: "Draw No Bet" },
                 { key: "over_under_2_5", label: "Goals Over/Under" },
                 { key: "both_teams_to_score", label: "Both Teams to Score" },
                 { key: "half_time_result", label: "1st Half Result" },
                 { key: "second_half_result", label: "2nd Half Result" },
                 { key: "first_half_goals_ou", label: "1st Half Over/Under" },
                 { key: "second_half_goals_ou", label: "2nd Half Over/Under" },
-                { key: "first_half_btts", label: "1st Half BTTS" },
-                { key: "second_half_btts", label: "2nd Half BTTS" },
                 { key: "odd_even_goals", label: "Odd/Even Goals" },
               ] as const
             ).map((m) => (
@@ -755,7 +752,6 @@ export default function HomePage() {
                         const isBettingOpen = isUpcoming || isLive;
                         const is1HMarket = [
                           "half_time_result",
-                          "first_half_btts",
                           "first_half_goals_ou",
                           "ht_correct_score",
                           "ht_ft",
@@ -771,12 +767,10 @@ export default function HomePage() {
                         else if (opt.outcome === "dc_1x") tag = "1X";
                         else if (opt.outcome === "dc_12") tag = "12";
                         else if (opt.outcome === "dc_x2") tag = "X2";
-                        else if (opt.outcome === "dnb_home") tag = "1 DNB";
-                        else if (opt.outcome === "dnb_away") tag = "2 DNB";
                         else if (opt.outcome === "over_2_5") tag = "O 2.5";
                         else if (opt.outcome === "under_2_5") tag = "U 2.5";
-                        else if (opt.outcome === "btts_yes" || opt.outcome === "1h_btts_yes" || opt.outcome === "2h_btts_yes") tag = "YES";
-                        else if (opt.outcome === "btts_no" || opt.outcome === "1h_btts_no" || opt.outcome === "2h_btts_no") tag = "NO";
+                        else if (opt.outcome === "btts_yes") tag = "YES";
+                        else if (opt.outcome === "btts_no") tag = "NO";
                         else if (opt.outcome === "odd_goals") tag = "ODD";
                         else if (opt.outcome === "even_goals") tag = "EVEN";
                         else if (opt.outcome === "first_goal_home") tag = "1ST H";

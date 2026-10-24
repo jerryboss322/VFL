@@ -14,7 +14,9 @@ from app.services.betting import (
     BettingError,
     _extract_fixture_id_from_odds_id,
     _find_selection,
+    _format_bet_dict,
     cashout_bet,
+    compute_bet_cashout,
     place_bet,
 )
 
@@ -98,7 +100,16 @@ async def list_bets(
     if status:
         stmt = stmt.where(Bet.status == status)
     result = await session.execute(stmt)
-    return result.scalars().all()
+    bets = result.scalars().all()
+
+    out_bets = []
+    for b in bets:
+        if b.status == "pending":
+            co = await compute_bet_cashout(session, b)
+            out_bets.append(_format_bet_dict(b, cashout_info=co))
+        else:
+            out_bets.append(_format_bet_dict(b))
+    return out_bets
 
 
 @router.post("/{bet_id}/cashout", response_model=BetOut)

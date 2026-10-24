@@ -9,7 +9,6 @@ across 27 comprehensive markets organized into 3 categories:
 1. Match Result Markets (`result`):
    - match_winner (Match Result 1X2)
    - double_chance (Double Chance 1X, 12, X2)
-   - draw_no_bet (Draw No Bet)
    - handicap_3way (3-Way Handicap: -1/+1, -2/+2, -3/+3)
    - half_time_result (Half-Time Result 1X2)
    - full_time_result (Full-Time Result 90 Mins)
@@ -29,8 +28,6 @@ across 27 comprehensive markets organized into 3 categories:
    - team_to_score (Team to Score: Home Only, Away Only, Both, Neither)
    - last_team_to_score (Last Team to Score: Home, No Goal, Away)
    - second_half_result (2nd Half Result 1X2: Home, Draw, Away)
-   - first_half_btts (1st Half Both Teams to Score: Yes, No)
-   - second_half_btts (2nd Half Both Teams to Score: Yes, No)
    - first_half_goals_ou (First-Half Goals Over/Under 0.5, 1.5, 2.5)
    - second_half_goals_ou (Second-Half Goals Over/Under 0.5, 1.5, 2.5)
    - ht_correct_score (Half-Time Correct Score)
@@ -562,34 +559,10 @@ def generate_fixture_markets(
     p_home_only = sum(p for (h, a), p in ft_grid.items() if h >= 1 and a == 0)
     p_away_only = sum(p for (h, a), p in ft_grid.items() if a >= 1 and h == 0)
 
-    # Draw No Bet (conditional on non-draw)
-    non_draw = max(0.05, p_home + p_away)
-    p_dnb_home = p_home / non_draw
-    p_dnb_away = p_away / non_draw
-
     # 2nd Half Result probabilities
     p_2h_home = sum(p for (h, a), p in h2_grid.items() if h > a)
     p_2h_draw = sum(p for (h, a), p in h2_grid.items() if h == a)
     p_2h_away = sum(p for (h, a), p in h2_grid.items() if h < a)
-
-    # 1st & 2nd Half Both Teams to Score probabilities
-    if is_live and cur_1h_h >= 1 and cur_1h_a >= 1:
-        p_1h_btts_yes = 0.999
-        p_1h_btts_no = 0.0001
-    else:
-        p_1h_btts_yes = sum(p for (h, a), p in h1_grid.items() if h >= 1 and a >= 1)
-        p_1h_btts_no = max(0.0001, 1.0 - p_1h_btts_yes)
-
-    if is_live and elapsed_seconds >= half_boundary:
-        if cur_2h_h >= 1 and cur_2h_a >= 1:
-            p_2h_btts_yes = 0.999
-            p_2h_btts_no = 0.0001
-        else:
-            p_2h_btts_yes = sum(p for (h, a), p in h2_grid.items() if h >= 1 and a >= 1)
-            p_2h_btts_no = max(0.0001, 1.0 - p_2h_btts_yes)
-    else:
-        p_2h_btts_yes = sum(p for (h, a), p in h2_grid.items() if h >= 1 and a >= 1)
-        p_2h_btts_no = max(0.02, 1.0 - p_2h_btts_yes)
 
     markets = [
         # ==================== 1. MATCH RESULT MARKETS ====================
@@ -611,15 +584,6 @@ def generate_fixture_markets(
                 _opt(f"{fid}:dc:1x", "dc_1x", f"{home_name} or Draw (1X)", p_home + p_draw),
                 _opt(f"{fid}:dc:12", "dc_12", f"{home_name} or {away_name} (12)", p_home + p_away),
                 _opt(f"{fid}:dc:x2", "dc_x2", f"Draw or {away_name} (X2)", p_draw + p_away),
-            ],
-        },
-        {
-            "key": "draw_no_bet",
-            "category": "result",
-            "label": "Draw No Bet",
-            "options": [
-                _opt(f"{fid}:dnb:home", "dnb_home", f"{home_name} (DNB)", p_dnb_home),
-                _opt(f"{fid}:dnb:away", "dnb_away", f"{away_name} (DNB)", p_dnb_away),
             ],
         },
         {
@@ -773,24 +737,6 @@ def generate_fixture_markets(
             ],
         },
         {
-            "key": "first_half_btts",
-            "category": "half_time",
-            "label": "1st Half Both Teams to Score",
-            "options": [
-                _opt(f"{fid}:1h_btts:yes", "1h_btts_yes", "1H BTTS Yes", p_1h_btts_yes),
-                _opt(f"{fid}:1h_btts:no", "1h_btts_no", "1H BTTS No", p_1h_btts_no),
-            ],
-        },
-        {
-            "key": "second_half_btts",
-            "category": "half_time",
-            "label": "2nd Half Both Teams to Score",
-            "options": [
-                _opt(f"{fid}:2h_btts:yes", "2h_btts_yes", "2H BTTS Yes", p_2h_btts_yes),
-                _opt(f"{fid}:2h_btts:no", "2h_btts_no", "2H BTTS No", p_2h_btts_no),
-            ],
-        },
-        {
             "key": "last_team_to_score",
             "category": "goals",
             "label": "Last Team to Score",
@@ -888,7 +834,6 @@ def generate_fixture_markets(
     # Lock all 1st-half markets once the first half finishes (elapsed_seconds >= 240 / 45' HT)
     FIRST_HALF_MARKETS = {
         "half_time_result",
-        "first_half_btts",
         "first_half_goals_ou",
         "ht_correct_score",
         "ht_ft",

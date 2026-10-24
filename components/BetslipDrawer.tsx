@@ -499,6 +499,9 @@ export function BetslipDrawer() {
                         betId={bet.id}
                         stakeMinor={bet.stakeMinor}
                         recordedOdds={Number(bet.recordedOdds)}
+                        cashoutValueMinor={bet.cashoutValueMinor}
+                        currentOdds={bet.currentOdds}
+                        cashoutAvailable={bet.cashoutAvailable}
                         disabled={cashingOutId === bet.id}
                         onCashOut={handleCashOut}
                       />

@@ -221,11 +221,15 @@ export interface Bet {
   placedAt: ISODate;
   settledAt?: ISODate;
   returnMinor?: Minor;
+  cashoutValueMinor?: Minor;
+  currentOdds?: number;
+  cashoutAvailable?: boolean;
   selections: {
     fixtureId: string;
     market: MarketKey;
     label: string;
     recordedOdds: number;
+    currentOdds?: number;
   }[];
 }
 

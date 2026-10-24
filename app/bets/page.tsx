@@ -37,6 +37,10 @@ export default function BetsPage() {
 
   useEffect(() => {
     void loadBets();
+    const interval = setInterval(() => {
+      void loadBets();
+    }, 2500);
+    return () => clearInterval(interval);
   }, [loadBets, betPlacedCounter]);
 
   const handleCashout = async (betId: string, percentage: number = 100) => {
@@ -302,6 +306,9 @@ export default function BetsPage() {
                           betId={b.id}
                           stakeMinor={b.stakeMinor}
                           recordedOdds={Number(b.recordedOdds)}
+                          cashoutValueMinor={b.cashoutValueMinor}
+                          currentOdds={b.currentOdds}
+                          cashoutAvailable={b.cashoutAvailable}
                           disabled={cashingOutId === b.id}
                           onCashOut={handleCashout}
                         />

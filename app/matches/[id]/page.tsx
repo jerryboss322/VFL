@@ -673,7 +673,6 @@ export default function MatchDetailPage() {
               const isGridMarket = market.options.length > 4;
               const is1HMarket = [
                 "half_time_result",
-                "first_half_btts",
                 "first_half_goals_ou",
                 "ht_correct_score",
                 "ht_ft",

@@ -76,6 +76,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     void refreshAccount();
   }, [refreshAccount]);
 
+  // Periodically refresh open bets and wallet balances so live cashout amounts follow odds movements
+  useEffect(() => {
+    if (!user || openBets.length === 0) return;
+    const interval = setInterval(() => {
+      void refreshAccount();
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [user, openBets.length, refreshAccount]);
+
   const toggleSlipSelection = useCallback(
     (sel: Selection) => {
       if (user?.isAdmin) return;

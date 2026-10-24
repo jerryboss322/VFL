@@ -6,7 +6,7 @@ row-level locking (SELECT ... FOR UPDATE) and exact Decimal arithmetic.
 """
 
 from datetime import datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_DOWN
 from typing import Any
 from uuid import UUID
 
@@ -21,7 +21,7 @@ from app.models.odds import OddsSnapshot
 from app.models.user import User
 from app.models.wallet import Wallet
 from app.schemas.bet import PlaceBetRequest
-from app.services.odds_engine import evaluate_selection_outcome
+from app.services.odds_engine import evaluate_selection_outcome, evaluate_market_outcome
 
 
 def _now_iso() -> str:
@@ -179,7 +179,6 @@ async def place_bet(
         mkey = sel.get("market")
         first_half_markets = {
             "half_time_result",
-            "first_half_btts",
             "first_half_goals_ou",
             "ht_correct_score",
             "ht_ft",
@@ -261,7 +260,11 @@ async def place_bet(
     return _format_bet_dict(bet, wallet)
 
 
-def _format_bet_dict(bet: Bet, wallet: Wallet | None = None) -> dict[str, Any]:
+def _format_bet_dict(
+    bet: Bet,
+    wallet: Wallet | None = None,
+    cashout_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     out: dict[str, Any] = {
         "id": str(bet.id),
         "status": bet.status,
@@ -277,6 +280,13 @@ def _format_bet_dict(bet: Bet, wallet: Wallet | None = None) -> dict[str, Any]:
         "returnMinor": bet.return_minor,
         "selections": bet.selections,
     }
+    if cashout_info is not None:
+        out["cashout_value_minor"] = cashout_info.get("cashout_value_minor")
+        out["cashoutValueMinor"] = cashout_info.get("cashout_value_minor")
+        out["current_odds"] = cashout_info.get("current_odds")
+        out["currentOdds"] = cashout_info.get("current_odds")
+        out["cashout_available"] = cashout_info.get("cashout_available", True)
+        out["cashoutAvailable"] = cashout_info.get("cashout_available", True)
     if wallet is not None:
         out["wallet"] = {
             "available_minor": wallet.available_minor,
@@ -361,13 +371,131 @@ async def settle_bet(
     return _format_bet_dict(bet, wallet)
 
 
+async def compute_bet_cashout(session: AsyncSession, bet: Bet) -> dict[str, Any]:
+    """Calculate the live cashout buyout value for a pending bet based on in-play odds movement."""
+    if bet.status != "pending":
+        return {
+            "cashout_value_minor": 0,
+            "current_odds": float(bet.recorded_odds),
+            "cashout_available": False,
+        }
+
+    selections = bet.selections or []
+    if not selections:
+        return {
+            "cashout_value_minor": int((Decimal(bet.stake_minor) * Decimal("0.92")).to_integral_value(rounding=ROUND_HALF_UP)),
+            "current_odds": float(bet.recorded_odds),
+            "cashout_available": True,
+        }
+
+    current_combined_odds = Decimal("1.0")
+    any_suspended = False
+
+    for sel in selections:
+        fid_str = sel.get("fixture_id") or sel.get("fixtureId")
+        if not fid_str:
+            continue
+        try:
+            fid = UUID(str(fid_str))
+        except ValueError:
+            continue
+
+        fx = await session.get(Fixture, fid)
+        if fx is None:
+            continue
+
+        # If fixture is completed, check whether this selection won or lost
+        if fx.status == "completed":
+            oid = sel.get("odds_id") or sel.get("oddsId") or ""
+            out = sel.get("outcome") or ""
+            mkey = sel.get("market") or ""
+            won = evaluate_market_outcome(
+                mkey,
+                out,
+                fx.home_goals or 0,
+                fx.away_goals or 0,
+                oid=oid,
+            )
+            if not won:
+                return {
+                    "cashout_value_minor": 0,
+                    "current_odds": 999.0,
+                    "cashout_available": False,
+                }
+            # Leg won, current odds factor is 1.0
+            continue
+
+        # Fixture is live or upcoming: retrieve latest active odds snapshot
+        snap_res = await session.execute(
+            select(OddsSnapshot)
+            .where(OddsSnapshot.fixture_id == fid)
+            .where(OddsSnapshot.is_active == True)  # noqa: E712
+            .order_by(OddsSnapshot.version.desc())
+            .limit(1)
+        )
+        snap = snap_res.scalar_one_or_none()
+        if snap is None or not snap.markets:
+            current_combined_odds *= Decimal(str(sel.get("recorded_odds", 1.0)))
+            continue
+
+        mkey = sel.get("market") or ""
+        oid = sel.get("odds_id") or sel.get("oddsId") or ""
+        out = sel.get("outcome") or ""
+
+        target_opt = None
+        target_market = None
+        for m in snap.markets:
+            if m.get("key") == mkey:
+                target_market = m
+                for opt in m.get("options", []):
+                    if (oid and (opt.get("odds_id") == oid or opt.get("oddsId") == oid)) or (out and opt.get("outcome") == out):
+                        target_opt = opt
+                        break
+                break
+
+        if target_opt is None:
+            current_combined_odds *= Decimal(str(sel.get("recorded_odds", 1.0)))
+            continue
+
+        if target_opt.get("suspended") or (target_market and target_market.get("suspended")):
+            any_suspended = True
+
+        cur_dec = Decimal(str(target_opt.get("decimal", sel.get("recorded_odds", 1.0))))
+        if cur_dec <= Decimal("1.0"):
+            cur_dec = Decimal("1.01")
+        current_combined_odds *= cur_dec
+
+    cur_combined_float = float(current_combined_odds.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+    recorded_float = float(bet.recorded_odds)
+
+    # Potential return = Stake * Recorded Odds
+    potential_return = Decimal(bet.stake_minor) * Decimal(str(recorded_float))
+
+    # Fair value = Potential Return / Current Combined Odds
+    fair_value = potential_return / current_combined_odds
+
+    # Cashout offer with 92% standard fair bookmaker cashout margin
+    cashout_val = (fair_value * Decimal("0.92")).to_integral_value(rounding=ROUND_HALF_UP)
+    cashout_minor = int(cashout_val)
+
+    # Cap bounds: max 95% of potential return, min 1 unit
+    max_cap = int((potential_return * Decimal("0.95")).to_integral_value(rounding=ROUND_HALF_DOWN))
+    cashout_minor = max(1, min(max_cap, cashout_minor))
+
+    return {
+        "cashout_value_minor": cashout_minor,
+        "current_odds": cur_combined_float,
+        "cashout_available": not any_suspended,
+    }
+
+
 async def cashout_bet(
     session: AsyncSession,
     user: User,
     bet: Bet,
     percentage: int = 100,
 ) -> dict[str, Any]:
-    """Early Cash-Out for a pending bet: releases reserved stake and credits a fair buyout (full or partial)."""
+    """Early Cash-Out for a pending bet: releases reserved stake and credits a fair buyout (full or partial) based on live odds."""
     if bet.user_id != user.id:
         raise BettingError("FORBIDDEN", "Not your bet", 403)
     if bet.status != "pending":
@@ -382,16 +510,22 @@ async def cashout_bet(
     if wallet is None:
         raise BettingError("INSUFFICIENT_FUNDS", "No wallet found", 409)
 
+    co = await compute_bet_cashout(session, bet)
+    if not co["cashout_available"] or co["cashout_value_minor"] <= 0:
+        raise BettingError("CASHOUT_UNAVAILABLE", "Cash out is currently suspended or unavailable for this bet", 409)
+
+    full_cashout_minor = co["cashout_value_minor"]
+    cashout_minor = int(
+        (Decimal(full_cashout_minor) * (Decimal(percentage) / Decimal(100))).to_integral_value(rounding=ROUND_HALF_UP)
+    )
+    if cashout_minor <= 0:
+        cashout_minor = 1
+
     cashed_stake_minor = int(
         (Decimal(bet.stake_minor) * (Decimal(percentage) / Decimal(100))).to_integral_value(rounding=ROUND_HALF_UP)
     )
     if cashed_stake_minor <= 0:
         cashed_stake_minor = 1
-
-    # Calculate fair cash-out buyout (92% of cashed stake)
-    cashout_minor = int(
-        (Decimal(cashed_stake_minor) * Decimal("0.92")).to_integral_value(rounding=ROUND_HALF_UP)
-    )
 
     wallet.reserved_minor = max(0, wallet.reserved_minor - cashed_stake_minor)
     wallet.available_minor += cashout_minor
@@ -400,13 +534,13 @@ async def cashout_bet(
         bet.status = "void"
         bet.return_minor = (bet.return_minor or 0) + cashout_minor
         bet.settled_at = _now_iso()
-        desc = f"Early Cash-Out settled ({cashout_minor} minor units credited)"
+        desc = f"Early Cash-Out settled ({cashout_minor} minor units credited based on live odds {co['current_odds']})"
         ref = f"cashout:{bet.id}"
     else:
         # Partial Cash-Out: deduct cashed stake, leave remaining stake pending
         bet.stake_minor -= cashed_stake_minor
         bet.return_minor = (bet.return_minor or 0) + cashout_minor
-        desc = f"Partial Cash-Out ({percentage}%): {cashout_minor} credited, {bet.stake_minor} stake remains active"
+        desc = f"Partial Cash-Out ({percentage}%): {cashout_minor} credited at live odds {co['current_odds']}, {bet.stake_minor} stake remains active"
         ref = f"cashout:{bet.id}:{percentage}%"
 
     session.add(
@@ -425,7 +559,7 @@ async def cashout_bet(
     await session.commit()
     await session.refresh(bet)
     await session.refresh(wallet)
-    return _format_bet_dict(bet, wallet)
+    return _format_bet_dict(bet, wallet, cashout_info=co)
 
 
 async def auto_settle_fixture_bets(session: AsyncSession, fixture: Fixture) -> list[dict[str, Any]]:

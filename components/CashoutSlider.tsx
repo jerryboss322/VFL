@@ -7,6 +7,9 @@ interface Props {
   betId: string;
   stakeMinor: number;
   recordedOdds: number;
+  cashoutValueMinor?: number;
+  currentOdds?: number;
+  cashoutAvailable?: boolean;
   disabled?: boolean;
   onCashOut: (betId: string, percentage: number) => Promise<void>;
 }
@@ -15,6 +18,9 @@ export function CashoutSlider({
   betId,
   stakeMinor,
   recordedOdds,
+  cashoutValueMinor,
+  currentOdds,
+  cashoutAvailable = true,
   disabled = false,
   onCashOut,
 }: Props) {
@@ -22,10 +28,19 @@ export function CashoutSlider({
   const [percentage, setPercentage] = useState(100);
   const [loading, setLoading] = useState(false);
 
+  // Dynamic cashout value derived from live odds movement
+  const fullCashout = cashoutValueMinor !== undefined
+    ? cashoutValueMinor
+    : (currentOdds && currentOdds > 0
+        ? Math.round((stakeMinor * (recordedOdds / currentOdds)) * 0.92)
+        : Math.round(stakeMinor * 0.92));
+
+  const isAvailable = cashoutAvailable && fullCashout > 0;
+  const cashoutValue = Math.round(fullCashout * (percentage / 100));
   const cashedStake = Math.round(stakeMinor * (percentage / 100));
-  const cashoutValue = Math.round(cashedStake * 0.92);
   const remainingStake = Math.max(0, stakeMinor - cashedStake);
   const remainingPotentialReturn = Math.round(remainingStake * recordedOdds);
+  const isProfit = fullCashout > stakeMinor;
 
   async function handleConfirm() {
     setLoading(true);
@@ -35,23 +50,41 @@ export function CashoutSlider({
   }
 
   if (!open) {
+    if (!isAvailable) {
+      return (
+        <div className="flex items-center gap-1.5 w-full">
+          <button
+            type="button"
+            disabled
+            className="flex-1 rounded-control border border-line bg-graphite/40 py-1.5 px-3 font-mono text-[11px] font-semibold text-fog cursor-not-allowed opacity-60"
+          >
+            🔒 Cash Out Suspended
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center gap-1.5 w-full">
         <button
           type="button"
           disabled={disabled || loading}
           onClick={handleConfirm}
-          className="flex-1 rounded-control border border-accent/60 bg-accent/15 py-1.5 px-3 font-mono text-[11px] font-bold text-accent transition-opacity hover:opacity-90 disabled:opacity-50"
+          className={`flex-1 rounded-control border py-1.5 px-3 font-mono text-[11px] font-bold transition-all hover:opacity-90 disabled:opacity-50 ${
+            isProfit
+              ? "border-win/60 bg-win/20 text-win"
+              : "border-accent/60 bg-accent/15 text-accent"
+          }`}
         >
           {loading
             ? "Settling Cash Out..."
-            : `Cash Out ${formatMinor(Math.round(stakeMinor * 0.92))}`}
+            : `Cash Out ${formatMinor(fullCashout)}${isProfit ? " (In Profit)" : ""}`}
         </button>
         <button
           type="button"
           disabled={disabled || loading}
           onClick={() => setOpen(true)}
-          title="Betfair Partial Cash Out Slider"
+          title="Partial Cash Out Slider"
           aria-label="Open Partial Cash Out Slider"
           className="flex h-[31px] w-[31px] items-center justify-center rounded-control border border-accent/60 bg-accent/15 text-accent hover:bg-accent/25 transition-colors disabled:opacity-50"
         >
