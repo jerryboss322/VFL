@@ -230,15 +230,17 @@ for _prefix in ("", "/api"):
             info["error"] = type(exc).__name__ + ": " + str(exc).splitlines()[0][:200] if str(exc) else type(exc).__name__
         return info
 
-    @_router.post("/system/init-db", tags=["system"])
-    async def init_db(request: Request):
+    @_router.api_route("/system/init-db", methods=["GET", "POST"], tags=["system"])
+    async def init_db(request: Request, force: bool = False):
         """Auto-initialize schema and seed leagues/clubs if database is empty."""
         from app.core.database import Base, engine
         import importlib
         # Import all models to ensure they register on Base.metadata
-        for mod in ["app.models.league", "app.models.club", "app.models.fixture", "app.models.season", 
-                    "app.models.user", "app.models.bet", "app.models.odds", "app.models.match_state", 
-                    "app.models.match_event", "app.models.financial_ledger", "app.models.audit_log"]:
+        for mod in [
+            "app.models.league", "app.models.club", "app.models.fixture", "app.models.season", 
+            "app.models.user", "app.models.bet", "app.models.odds", "app.models.match_state", 
+            "app.models.match_event", "app.models.financial_ledger", "app.models.audit_log"
+        ]:
             try:
                 importlib.import_module(mod)
             except Exception:
@@ -251,7 +253,7 @@ for _prefix in ("", "/api"):
             await conn.run_sync(Base.metadata.create_all)
 
         # Seed data
-        await seed(force_reset=False)
+        await seed(force_reset=force)
         return {"status": "success", "message": "Database tables and seed data created successfully"}
 
 
