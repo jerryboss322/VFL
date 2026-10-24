@@ -135,6 +135,7 @@ async def start_match(fixture_id: str, session: AsyncSession = Depends(get_sessi
     state = await engine.initialize_match(fixture, fixture.home_club, fixture.away_club)
     if state.status == "upcoming":
         state = await engine.start_match(fixture)
+    await session.commit()
     return {
         "status": state.status,
         "clock_seconds": state.clock_seconds,
@@ -177,6 +178,7 @@ async def simulate_match(
         )
         state = await engine.advance_tick(fixture, target_clock)
 
+    await session.commit()
     return {
         "status": state.status,
         "clock_seconds": state.clock_seconds,
@@ -226,4 +228,5 @@ async def simulate_matchday(
                 "awayGoals": state.away_goals,
             }
         )
+    await session.commit()
     return {"matchday": matchday, "fixtures": updated}

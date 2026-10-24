@@ -363,6 +363,19 @@ export default function HomePage() {
     Math.max(0, Math.round(((240 - secondsUntilKickoff) / 240) * 100)),
   );
 
+  // Trigger immediate load when countdown reaches 0 to transition seamlessly to live in-play
+  const triggeredKickoffRef = useRef(false);
+  useEffect(() => {
+    if (secondsUntilKickoff === 0 && !isCurrentlyLive && fixtures.length > 0) {
+      if (!triggeredKickoffRef.current) {
+        triggeredKickoffRef.current = true;
+        void loadFixtures(false);
+      }
+    } else if (secondsUntilKickoff > 0) {
+      triggeredKickoffRef.current = false;
+    }
+  }, [secondsUntilKickoff, isCurrentlyLive, fixtures.length, loadFixtures]);
+
   const currentLeagueLogo = selectedLeague ? (LEAGUE_LOGOS[selectedLeague.shortName] || LEAGUE_LOGOS[selectedLeague.name]) : null;
 
   return (

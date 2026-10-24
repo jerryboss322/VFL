@@ -10,7 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
@@ -268,7 +268,7 @@ async def _ensure_infinite_upcoming_fixtures(session, now: datetime, pre_match: 
     refreshed = await session.execute(
         select(Fixture)
         .where(Fixture.status.in_(["live", "upcoming"]))
-        .options(selectinload(Fixture.home_club), selectinload(Fixture.away_club))
+        .options(joinedload(Fixture.home_club), joinedload(Fixture.away_club))
         .order_by(Fixture.matchday.asc(), Fixture.created_at.asc())
     )
     return refreshed.scalars().all()
@@ -284,7 +284,7 @@ def _parse_iso(ts: str) -> datetime:
 
 async def run_simulation_tick() -> dict:
     """Bring live matches up to date with the wall clock, kick off due matchdays,
-    and schedule the next matchday after one completes. Idempotent and per-league isolated."""
+    and schedule the next matchday after one completes. High-performance single-commit batch."""
     if settings.SIMULATION_PAUSED:
         return {"paused": True}
 
@@ -294,16 +294,18 @@ async def run_simulation_tick() -> dict:
     match_cycle_seconds = MATCH_DURATION_SECONDS + HALFTIME_BREAK_SECONDS + pre_match
 
     async with AsyncSessionLocal() as session:
-        # Guarantee infinite matchday pipeline: if upcoming fixtures run low or run out, auto-generate more
-        fixtures = await _ensure_infinite_upcoming_fixtures(session, now, pre_match)
+        # 1. Fetch all live and upcoming fixtures across all leagues in ONE joined query
+        res = await session.execute(
+            select(Fixture)
+            .where(Fixture.status.in_(["live", "upcoming"]))
+            .options(joinedload(Fixture.home_club), joinedload(Fixture.away_club))
+            .order_by(Fixture.matchday.asc(), Fixture.kickoff_at.asc())
+        )
+        fixtures = res.scalars().all()
+
+        # If no active fixtures exist at all, populate pipeline and re-query
         if not fixtures:
-            res = await session.execute(
-                select(Fixture)
-                .where(Fixture.status.in_(["live", "upcoming"]))
-                .options(selectinload(Fixture.home_club), selectinload(Fixture.away_club))
-                .order_by(Fixture.matchday.asc(), Fixture.created_at.asc())
-            )
-            fixtures = res.scalars().all()
+            fixtures = await _ensure_infinite_upcoming_fixtures(session, now, pre_match)
         if not fixtures:
             return {"advanced": 0, "kickedOff": 0}
 
@@ -339,6 +341,36 @@ async def run_simulation_tick() -> dict:
                 earliest_ko = min(_parse_iso(f.kickoff_at) for f in md_fx)
 
                 if now >= earliest_ko:
+                    diff_seconds = (now - earliest_ko).total_seconds()
+
+                    # CASE A: Matchday is vastly overdue (e.g. > match_cycle from downtime/pause).
+                    # Instantly complete it, auto-settle any bets, and move upcoming matchday to 4 minutes from now!
+                    if diff_seconds >= (MATCH_DURATION_SECONDS + HALFTIME_BREAK_SECONDS):
+                        for fx in md_fx:
+                            try:
+                                home = fx.home_club or await session.get(Club, fx.home_club_id)
+                                away = fx.away_club or await session.get(Club, fx.away_club_id)
+                                await engine.initialize_match(fx, home, away)
+                                await engine.start_match(fx)
+                                await engine.advance_tick(fx, MATCH_DURATION_SECONDS)
+                                fx.status = "completed"
+                            except Exception as e:
+                                import logging
+                                logging.exception("Error completing overdue fixture %s: %s", fx.id, e)
+
+                        # Shift subsequent upcoming matchdays forward to start pre_match (4m) from now
+                        remaining_upcoming = [f for f in s_fxs if f.status == "upcoming" and f not in md_fx]
+                        if remaining_upcoming:
+                            earliest_rem_md = min(f.matchday for f in remaining_upcoming)
+                            base = now
+                            for f in remaining_upcoming:
+                                offset = f.matchday - earliest_rem_md
+                                f.kickoff_at = (
+                                    base + timedelta(seconds=pre_match + offset * match_cycle_seconds)
+                                ).isoformat()
+                        continue
+
+                    # CASE B: Matchday is due or in-progress!
                     for fx in md_fx:
                         try:
                             home = fx.home_club or await session.get(Club, fx.home_club_id)
@@ -394,6 +426,8 @@ async def run_simulation_tick() -> dict:
                         f.kickoff_at = (
                             base + timedelta(seconds=pre_match + offset * match_cycle_seconds)
                         ).isoformat()
-                    await session.commit()
+
+        # Batch commit all state updates at the end of the tick
+        await session.commit()
 
     return {"advanced": advanced, "kickedOff": kicked_off}

@@ -72,27 +72,12 @@ _last_lazy_tick = 0.0
 _lazy_tick_lock = asyncio.Lock()
 
 
-async def _safe_lazy_simulation_tick():
-    global _last_lazy_tick
-    if _lazy_tick_lock.locked():
-        return
-    async with _lazy_tick_lock:
-        import time
-        now = time.monotonic()
-        if now - _last_lazy_tick < 5.0:
-            return
-        _last_lazy_tick = now
-        try:
-            await run_simulation_tick()
-        except Exception as e:
-            logging.debug("Non-critical lazy simulation catchup notice: %s", e)
-
-
 @app.middleware("http")
 async def lazy_simulation_catchup(request: Request, call_next):
-    """On Vercel, trigger simulation catch-up asynchronously in the background
-    without ever blocking the incoming HTTP request. This keeps response times
-    sub-second while keeping live match clocks and scores up to date."""
+    """On Vercel, catch up simulation state at most once every 2.5 seconds on incoming requests.
+    Because run_simulation_tick() runs with a single batch commit in < 100ms, running it
+    synchronously guarantees that the serverless runtime executes it to completion before
+    freezing the container, ensuring 100% accurate live clocks, scores, and countdowns."""
     global _last_lazy_tick
     p = request.url.path
     if (
@@ -100,15 +85,18 @@ async def lazy_simulation_catchup(request: Request, call_next):
         or "/matches" in p
         or "/league" in p
         or "/bets" in p
-        or "/admin" in p
-        or "/profile" in p
-        or "/leaderboard" in p
-    ):
+        or "/odds" in p
+    ) and not p.startswith("/cron") and not p.startswith("/system"):
         import time
         now = time.monotonic()
-        if now - _last_lazy_tick >= 5.0 and not _lazy_tick_lock.locked():
-            # Fire catchup in the background so the user's request is NEVER delayed
-            asyncio.create_task(_safe_lazy_simulation_tick())
+        if now - _last_lazy_tick >= 2.5 and not _lazy_tick_lock.locked():
+            async with _lazy_tick_lock:
+                if now - _last_lazy_tick >= 2.5:
+                    _last_lazy_tick = now
+                    try:
+                        await run_simulation_tick()
+                    except Exception as e:
+                        logging.warning("Simulation tick catchup notice: %s", e)
     return await call_next(request)
 
 

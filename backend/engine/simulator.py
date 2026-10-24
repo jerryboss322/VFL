@@ -351,8 +351,6 @@ class MatchEngine:
                     self.session.add(event)
 
                 await self.session.flush()
-            await self.session.commit()
-            await self.session.refresh(match_state)
             return match_state
         except Exception:
             # If concurrent initialize_match happened, roll back savepoint and return existing state
@@ -378,13 +376,11 @@ class MatchEngine:
         if state.status == "live":
             if fixture.status != "live":
                 fixture.status = "live"
-                await self.session.commit()
             return state
 
         if state.status == "completed":
             if fixture.status != "completed":
                 fixture.status = "completed"
-                await self.session.commit()
             return state
 
         state.status = "live"
@@ -416,8 +412,6 @@ class MatchEngine:
                 }
             ]
 
-        await self.session.commit()
-        await self.session.refresh(state)
         return state
 
     async def advance_tick(
@@ -437,7 +431,6 @@ class MatchEngine:
         if state.status == "completed":
             if fixture.status != "completed":
                 fixture.status = "completed"
-                await self.session.commit()
             return state
 
         if state.status == "upcoming":
@@ -526,8 +519,8 @@ class MatchEngine:
             odds_snap = odds_res.scalar_one_or_none()
             if odds_snap is not None:
                 new_ver = odds_snap.version + 1
-                home_club = await self.session.get(Club, fixture.home_club_id)
-                away_club = await self.session.get(Club, fixture.away_club_id)
+                home_club = fixture.home_club or await self.session.get(Club, fixture.home_club_id)
+                away_club = fixture.away_club or await self.session.get(Club, fixture.away_club_id)
                 ht_h = 0
                 ht_a = 0
                 for ev in (state.current_events or []):
@@ -571,9 +564,6 @@ class MatchEngine:
                 for m in odds_snap.markets:
                     for o in m.get("options", []):
                         o["suspended"] = True
-
-        await self.session.commit()
-        await self.session.refresh(state)
 
         if just_completed:
             try:
