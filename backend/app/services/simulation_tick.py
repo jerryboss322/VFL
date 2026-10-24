@@ -99,9 +99,6 @@ async def _ensure_infinite_upcoming_fixtures(session, now: datetime, pre_match: 
     if not leagues:
         return []
 
-    # Clean any legacy duplicate upcoming fixtures without bets
-    await _cleanup_duplicate_fixtures(session)
-
     created_any = False
     for lg in leagues:
         # Find active season for this league
@@ -344,7 +341,9 @@ async def run_simulation_tick() -> dict:
                 if now >= earliest_ko:
                     for fx in md_fx:
                         try:
-                            state = await engine.initialize_match(fx, fx.home_club, fx.away_club)
+                            home = fx.home_club or await session.get(Club, fx.home_club_id)
+                            away = fx.away_club or await session.get(Club, fx.away_club_id)
+                            state = await engine.initialize_match(fx, home, away)
                             if state.status == "upcoming":
                                 await engine.start_match(fx)
                                 kicked_off += 1

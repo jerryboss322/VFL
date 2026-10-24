@@ -305,48 +305,68 @@ class MatchEngine:
         away_club: Club,
         seed: str | None = None,
     ) -> MatchState:
+        fx_id = fixture.id if isinstance(fixture.id, uuid.UUID) else uuid.UUID(str(fixture.id))
         result = await self.session.execute(
-            select(MatchState).where(MatchState.fixture_id == fixture.id)
+            select(MatchState).where(MatchState.fixture_id == fx_id)
         )
         existing = result.scalar_one_or_none()
         if existing is not None:
             return existing
 
-        rng = random.Random(seed or str(fixture.id))
+        rng = random.Random(seed or str(fx_id))
 
-        match_state = MatchState(
-            fixture_id=fixture.id,
-            status="upcoming",
-            clock_seconds=0,
-            home_goals=0,
-            away_goals=0,
-            current_events=[],
-            event_version=0,
-        )
-        self.session.add(match_state)
-        await self.session.flush()
+        try:
+            async with self.session.begin_nested():
+                match_state = MatchState(
+                    fixture_id=fx_id,
+                    status="upcoming",
+                    clock_seconds=0,
+                    home_goals=0,
+                    away_goals=0,
+                    current_events=[],
+                    event_version=0,
+                )
+                self.session.add(match_state)
+                await self.session.flush()
 
-        events = _generate_match_events(str(fixture.id), home_club, away_club, rng)
+                events = _generate_match_events(str(fx_id), home_club, away_club, rng)
 
-        for ev in events:
-            event = MatchEvent(
-                fixture_id=fixture.id,
-                event_seq=ev["event_seq"],
-                event_type=ev["event_type"],
-                minute=ev["minute"],
-                club_id=ev["club_id"],
-                text=ev["text"],
-                payload=ev["payload"],
+                for ev in events:
+                    c_id = ev.get("club_id")
+                    if c_id and not isinstance(c_id, uuid.UUID):
+                        try:
+                            c_id = uuid.UUID(str(c_id))
+                        except Exception:
+                            c_id = None
+                    event = MatchEvent(
+                        fixture_id=fx_id,
+                        event_seq=ev["event_seq"],
+                        event_type=ev["event_type"],
+                        minute=ev["minute"],
+                        club_id=c_id,
+                        text=ev["text"],
+                        payload=ev["payload"],
+                    )
+                    self.session.add(event)
+
+                await self.session.flush()
+            await self.session.commit()
+            await self.session.refresh(match_state)
+            return match_state
+        except Exception:
+            # If concurrent initialize_match happened, roll back savepoint and return existing state
+            result = await self.session.execute(
+                select(MatchState).where(MatchState.fixture_id == fx_id)
             )
-            self.session.add(event)
-
-        await self.session.commit()
-        await self.session.refresh(match_state)
-        return match_state
+            existing = result.scalar_one_or_none()
+            if existing is not None:
+                return existing
+            raise
 
     async def start_match(self, fixture: Fixture) -> MatchState:
+        fx_id = fixture.id if isinstance(fixture.id, uuid.UUID) else uuid.UUID(str(fixture.id))
         result = await self.session.execute(
-            select(MatchState).where(MatchState.fixture_id == fixture.id)
+            select(MatchState).where(MatchState.fixture_id == fx_id)
         )
         state = result.scalar_one_or_none()
         if state is None:
@@ -377,7 +397,7 @@ class MatchEngine:
 
         kickoff = await self.session.execute(
             select(MatchEvent)
-            .where(MatchEvent.fixture_id == fixture.id)
+            .where(MatchEvent.fixture_id == fx_id)
             .where(MatchEvent.event_type == "kickoff")
             .order_by(MatchEvent.event_seq)
             .limit(1)
@@ -402,8 +422,9 @@ class MatchEngine:
     async def advance_tick(
         self, fixture: Fixture, seconds_elapsed: int
     ) -> MatchState:
+        fx_id = fixture.id if isinstance(fixture.id, uuid.UUID) else uuid.UUID(str(fixture.id))
         result = await self.session.execute(
-            select(MatchState).where(MatchState.fixture_id == fixture.id)
+            select(MatchState).where(MatchState.fixture_id == fx_id)
         )
         state = result.scalar_one_or_none()
         if state is None:
@@ -430,7 +451,7 @@ class MatchEngine:
 
         due_events = await self.session.execute(
             select(MatchEvent)
-            .where(MatchEvent.fixture_id == fixture.id)
+            .where(MatchEvent.fixture_id == fx_id)
             .where(MatchEvent.minute > 0)
             .where(MatchEvent.minute <= clock)
             .where(MatchEvent.event_seq > last_seq)
@@ -466,7 +487,7 @@ class MatchEngine:
             just_completed = True
             ft = await self.session.execute(
                 select(MatchEvent)
-                .where(MatchEvent.fixture_id == fixture.id)
+                .where(MatchEvent.fixture_id == fx_id)
                 .where(MatchEvent.event_type == "full_time")
                 .limit(1)
             )
@@ -563,15 +584,17 @@ class MatchEngine:
         return state
 
     async def get_state(self, fixture_id) -> MatchState | None:
+        fx_id = fixture_id if isinstance(fixture_id, uuid.UUID) else uuid.UUID(str(fixture_id))
         result = await self.session.execute(
-            select(MatchState).where(MatchState.fixture_id == fixture_id)
+            select(MatchState).where(MatchState.fixture_id == fx_id)
         )
         return result.scalar_one_or_none()
 
     async def get_events(self, fixture_id) -> list[MatchEvent]:
+        fx_id = fixture_id if isinstance(fixture_id, uuid.UUID) else uuid.UUID(str(fixture_id))
         result = await self.session.execute(
             select(MatchEvent)
-            .where(MatchEvent.fixture_id == fixture_id)
+            .where(MatchEvent.fixture_id == fx_id)
             .order_by(MatchEvent.event_seq)
         )
         return result.scalars().all()
