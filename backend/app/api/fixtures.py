@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 
 from app.api.deps import get_session
 from app.models.club import Club
@@ -10,6 +10,7 @@ from app.models.odds import OddsSnapshot
 from app.models.season import Season
 from app.schemas.fixture import FixtureCreate, FixtureDetailOut, FixtureOut
 from app.services.odds_engine import generate_fixture_markets
+import uuid
 
 router = APIRouter(prefix="/fixtures", tags=["fixtures"])
 
@@ -23,37 +24,27 @@ async def list_fixtures(
     session: AsyncSession = Depends(get_session),
 ):
     target_league_id = league_id or league_id_snake
+    target_uuid = None
+    if target_league_id:
+        try:
+            target_uuid = uuid.UUID(str(target_league_id))
+        except (ValueError, TypeError):
+            target_uuid = None
+
     stmt = (
         select(Fixture)
         .join(Season, Fixture.season_id == Season.id)
         .options(
-            selectinload(Fixture.home_club),
-            selectinload(Fixture.away_club),
-            selectinload(Fixture.season),
+            joinedload(Fixture.home_club),
+            joinedload(Fixture.away_club),
+            joinedload(Fixture.season),
         )
         .order_by(Fixture.matchday.asc(), Fixture.id.asc())
     )
-    if target_league_id:
+    if target_uuid:
+        stmt = stmt.where(Season.league_id == target_uuid)
+    elif target_league_id:
         stmt = stmt.where(Season.league_id == target_league_id)
-        # Isolate to active season for this league so previous or orphan seasons never bleed in
-        active_season_res = await session.execute(
-            select(Season.id)
-            .where(Season.league_id == target_league_id, Season.is_active == True)  # noqa: E712
-            .order_by(Season.created_at.desc())
-            .limit(1)
-        )
-        active_season_id = active_season_res.scalar_one_or_none()
-        if not active_season_id:
-            # Fall back to latest created season for this league
-            latest_season_res = await session.execute(
-                select(Season.id)
-                .where(Season.league_id == target_league_id)
-                .order_by(Season.created_at.desc())
-                .limit(1)
-            )
-            active_season_id = latest_season_res.scalar_one_or_none()
-        if active_season_id:
-            stmt = stmt.where(Fixture.season_id == active_season_id)
 
     if status:
         stmt = stmt.where(Fixture.status == status)
@@ -99,13 +90,18 @@ async def list_fixtures(
 
 @router.get("/{fixture_id}", response_model=FixtureDetailOut)
 async def get_fixture(fixture_id: str, session: AsyncSession = Depends(get_session)):
+    try:
+        fx_uuid = uuid.UUID(fixture_id)
+    except (ValueError, TypeError):
+        fx_uuid = fixture_id
+
     result = await session.execute(
         select(Fixture)
-        .where(Fixture.id == fixture_id)
+        .where(Fixture.id == fx_uuid)
         .options(
-            selectinload(Fixture.home_club),
-            selectinload(Fixture.away_club),
-            selectinload(Fixture.season),
+            joinedload(Fixture.home_club),
+            joinedload(Fixture.away_club),
+            joinedload(Fixture.season),
         )
     )
     fx = result.scalar_one_or_none()

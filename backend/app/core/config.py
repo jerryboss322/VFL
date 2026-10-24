@@ -14,11 +14,11 @@ def _resolve_database_url() -> str:
         if val and "neon" not in val:
             return val
 
-    # 2. Check if any postgres env var points explicitly to Supabase
+    # 2. Check if any postgres env var points explicitly to Supabase (prefer port 5432 non-pooling/session pooler)
     for k in (
+        "POSTGRES_URL_NON_POOLING",
         "POSTGRES_URL",
         "POSTGRES_PRISMA_URL",
-        "POSTGRES_URL_NON_POOLING",
         "DATABASE_URL",
     ):
         val = os.environ.get(k)
