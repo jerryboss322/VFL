@@ -76,7 +76,7 @@ export function BetBuilderStudio({ fixture, odds, slip, onToggleSlip }: Props) {
             </p>
           </div>
         </div>
-        <span className="rounded bg-[#014D38] px-2 py-0.5 font-mono text-[10px] font-bold text-accent uppercase border border-accent/30">
+        <span className="rounded bg-coal px-2 py-0.5 font-mono text-[10px] font-bold text-accent uppercase border border-accent/30">
           JOINT PROBABILITY ENGINE
         </span>
       </div>

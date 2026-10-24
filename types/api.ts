@@ -70,7 +70,7 @@ export interface MatchState {
 }
 
 export type MarketKey = string;
-export type MarketCategory = "result" | "goals" | "combo";
+export type MarketCategory = "result" | "half_time" | "goals" | "combo";
 export interface OddsOption {
   oddsId: string;
   version: number;

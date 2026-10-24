@@ -1425,9 +1425,12 @@ async def trigger_season_rollover(
         if len(clubs) < 2:
             continue
 
+        max_season_md = 38 if len(clubs) >= 20 else 34
         rounds = _generate_round_robin_pairings(clubs, num_matchdays=max(1, min(10, body.numMatchdays)))
         for idx, pairings in enumerate(rounds, start=1):
             md_num = max_md + idx
+            if md_num > max_season_md:
+                break
             ko = now + timedelta(seconds=240 + idx * 720)
             existing_target_res = await session.execute(
                 select(Fixture).where(

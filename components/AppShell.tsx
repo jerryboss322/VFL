@@ -46,29 +46,6 @@ function ShellInner({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-ink pb-14 md:pb-0 text-bone">
-      {/* Top Telemetry Strip */}
-      <div className="border-b border-line/60 bg-[#0A0E17] px-4 py-1.5 text-[11px] text-white/90">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-2 font-mono text-[11px] font-bold tracking-wider text-white">
-              <span className="live-dot h-2 w-2 rounded-full bg-accent" />
-              VFL • VIRTUAL FOOTBALL NETWORK
-            </span>
-            <span className="hidden sm:inline-block h-3 w-px bg-white/20" />
-            <span className="hidden sm:inline-block font-mono text-[11px] text-fog">
-              6 European Leagues • 116 Clubs
-            </span>
-          </div>
-          <div className="flex items-center gap-2.5 font-mono text-[11px]">
-            <span className="text-fog hidden sm:inline">4m Pre-Match • 8m Live</span>
-            <AudioToggle />
-            <span className="rounded bg-graphite border border-line px-2 py-0.5 text-[10px] font-bold tracking-wider text-accent uppercase">
-              Simulated Ledger (XTS)
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Main Navigation Header */}
       <header role="banner" className="sticky top-0 z-30 b365-header shadow-md backdrop-blur-md">
         <div className="mx-auto flex min-h-[58px] max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-2">
@@ -153,7 +130,8 @@ function ShellInner({ children }: { children: ReactNode }) {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <AudioToggle />
             {user && wallet ? (
               <>
                 {user.isAdmin ? (
@@ -211,7 +189,7 @@ function ShellInner({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={() => void logout()}
-                  className="rounded border border-white/20 bg-[#014D38] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#005A42] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="rounded border border-line bg-coal px-3 py-1.5 text-xs font-semibold text-fog hover:text-white hover:bg-graphite transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   Sign Out
                 </button>
@@ -220,7 +198,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => setAuthModalOpen(true)}
-                className="flex items-center gap-2 rounded bg-accent px-4 py-2 text-xs font-bold text-[#121212] transition-colors hover:bg-[#FFDF00] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="flex items-center gap-2 rounded bg-accent px-4 py-2 text-xs font-bold text-ink transition-all hover:bg-accent/90 shadow-md shadow-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <span>Join / Log In • 10,000 XTS</span>
                 <span>→</span>

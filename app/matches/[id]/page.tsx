@@ -195,6 +195,14 @@ export default function MatchDetailPage() {
     if (!fixture || isUpcoming || effectiveClock <= 0) {
       return { x: 50, y: 50, label: "Awaiting Kickoff at Center Circle", side: "neutral" };
     }
+    if (effectiveClock === 240 && !isCompleted) {
+      return {
+        x: 50,
+        y: 50,
+        label: "HALF-TIME WHISTLE (45') • 10-Second Break",
+        side: "neutral",
+      };
+    }
     const side = lastEv?.payload?.side;
     const seed = (effectiveClock * 17 + (visibleEvents.length + 1) * 31) % 100;
     const yOffset = 22 + (seed % 56);
@@ -210,7 +218,7 @@ export default function MatchDetailPage() {
       return {
         x: 62 + (seed % 26),
         y: yOffset,
-        label: lastEv?.text || `${fixture.home.name} in attacking possession`,
+        label: lastEv?.text || `${fixture.home.name} attacking into final third`,
         side: "home",
       };
     }
@@ -218,17 +226,17 @@ export default function MatchDetailPage() {
       return {
         x: 12 + (seed % 26),
         y: yOffset,
-        label: lastEv?.text || `${fixture.away.name} pressing forward`,
+        label: lastEv?.text || `${fixture.away.name} launching dangerous counter`,
         side: "away",
       };
     }
     return {
       x: 42 + (seed % 16),
       y: yOffset,
-      label: lastEv?.text || "Midfield tactical phase",
+      label: lastEv?.text || "Midfield tactical battle",
       side: "neutral",
     };
-  }, [fixture, isUpcoming, effectiveClock, visibleEvents]);
+  }, [fixture, isUpcoming, isCompleted, effectiveClock, visibleEvents]);
 
   const filteredMarkets = useMemo(() => {
     const all = odds?.markets ?? [];
@@ -390,19 +398,61 @@ export default function MatchDetailPage() {
         </div>
 
         {/* 2D Animated SVG Tactical Pitch Visualizer */}
-        <div className="my-5 overflow-hidden rounded-card border border-line bg-ink p-3">
-          <div className="mb-2 flex items-center justify-between font-mono text-[11px]">
-            <span className="uppercase tracking-wider text-fog">
-              2D TACTICAL PITCH TELEMETRY
-            </span>
-            <span className="truncate text-peach">{pitchTelemetry.label}</span>
+        <div className="my-5 overflow-hidden rounded-card border border-line bg-ink p-3.5">
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 font-mono text-[11px]">
+            <div className="flex items-center gap-2">
+              <span className="uppercase tracking-wider text-fog font-bold">
+                TACTICAL RADAR
+              </span>
+              {pitchTelemetry.side === "home" ? (
+                <span className="inline-flex items-center gap-1.5 rounded bg-blue-600/20 px-2 py-0.5 text-[11px] font-bold text-blue-400 border border-blue-500/50 shadow-sm shadow-blue-500/20">
+                  <span className="h-2 w-2 rounded-full bg-blue-500 animate-ping" />
+                  ATTACKING: {fixture.home.name.toUpperCase()} (HOME • BLUE →)
+                </span>
+              ) : pitchTelemetry.side === "away" ? (
+                <span className="inline-flex items-center gap-1.5 rounded bg-red-600/20 px-2 py-0.5 text-[11px] font-bold text-red-400 border border-red-500/50 shadow-sm shadow-red-500/20">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                  (← AWAY • RED) ATTACKING: {fixture.away.name.toUpperCase()}
+                </span>
+              ) : effectiveClock === 240 && !isCompleted ? (
+                <span className="inline-flex items-center gap-1.5 rounded bg-gold/20 px-2 py-0.5 text-[11px] font-bold text-gold border border-gold/40">
+                  <span className="h-2 w-2 rounded-full bg-gold" />
+                  HALF-TIME (10s BREAK)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded bg-graphite px-2 py-0.5 text-[10px] text-fog">
+                  MIDFIELD PHASE
+                </span>
+              )}
+            </div>
+            <span className="truncate text-peach font-semibold">{pitchTelemetry.label}</span>
           </div>
           <svg
             viewBox="0 0 100 56"
-            className="h-40 w-full rounded-control border border-line bg-[#0D1722] sm:h-48"
+            className="h-40 w-full rounded-control border border-line bg-[#0B111A] sm:h-48"
             role="img"
             aria-label="2D Football Pitch Visualizer"
           >
+            {/* SVG Defs for Attacking Waves: Home is Blue, Away is Red */}
+            <defs>
+              <linearGradient id="homeAttackGlow" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#0080FF" stopOpacity="0" />
+                <stop offset="100%" stopColor="#0080FF" stopOpacity="0.30" />
+              </linearGradient>
+              <linearGradient id="awayAttackGlow" x1="1" y1="0" x2="0" y2="0">
+                <stop offset="0%" stopColor="#FF2D55" stopOpacity="0" />
+                <stop offset="100%" stopColor="#FF2D55" stopOpacity="0.30" />
+              </linearGradient>
+            </defs>
+
+            {/* Tactical attacking third pressure highlights */}
+            {pitchTelemetry.side === "home" && (
+              <rect x="50" y="2" width="48" height="52" fill="url(#homeAttackGlow)" />
+            )}
+            {pitchTelemetry.side === "away" && (
+              <rect x="2" y="2" width="48" height="52" fill="url(#awayAttackGlow)" />
+            )}
+
             {/* Outer pitch lines */}
             <rect
               x="2"
@@ -473,33 +523,40 @@ export default function MatchDetailPage() {
                     key={g.id || i}
                     cx={isH ? 91 : 9}
                     cy={18 + ((i * 7) % 20)}
-                    r="1.3"
-                    fill="#48B588"
-                    opacity="0.85"
+                    r="1.4"
+                    fill={isH ? "#0080FF" : "#FF2D55"}
+                    opacity="0.9"
                   />
                 );
               })}
 
-            {/* Active Ball Position */}
+            {/* Active Ball Position: Home Attacking = Blue (#0080FF), Away Attacking = Red (#FF2D55) */}
             <circle
               cx={pitchTelemetry.x}
               cy={(pitchTelemetry.y / 100) * 52 + 2}
-              r="3.2"
+              r="4.2"
               fill={
                 pitchTelemetry.side === "home"
-                  ? "#6CA6E8"
+                  ? "#0080FF"
                   : pitchTelemetry.side === "away"
-                    ? "#D96B62"
-                    : "#48B588"
+                    ? "#FF2D55"
+                    : "#00E599"
               }
-              opacity="0.25"
+              opacity="0.30"
+              className="animate-pulse"
             />
             <circle
               cx={pitchTelemetry.x}
               cy={(pitchTelemetry.y / 100) * 52 + 2}
-              r="1.5"
-              fill="#EDF1F7"
-              stroke="#6CA6E8"
+              r="1.6"
+              fill={
+                pitchTelemetry.side === "home"
+                  ? "#0080FF"
+                  : pitchTelemetry.side === "away"
+                    ? "#FF2D55"
+                    : "#FFFFFF"
+              }
+              stroke="#FFFFFF"
               strokeWidth="0.6"
             />
           </svg>
@@ -509,7 +566,9 @@ export default function MatchDetailPage() {
         <div className="space-y-2">
           <div className="flex justify-between font-mono text-[10px] text-fog">
             <span>0&apos; KICKOFF</span>
-            <span>45&apos; HT</span>
+            <span className={effectiveClock === 240 && !isCompleted ? "text-gold font-bold animate-pulse" : ""}>
+              45&apos; HT (10s BREAK)
+            </span>
             <span>90&apos; FULL TIME</span>
           </div>
           <div className="relative h-2 w-full overflow-hidden rounded-full bg-ink">
@@ -712,10 +771,11 @@ export default function MatchDetailPage() {
           <div className="flex flex-wrap items-center gap-1.5">
             {(
               [
-                { id: "all", label: `All Markets (${odds?.markets.length ?? 27})` },
-                { id: "result", label: "1. Match Result (7)" },
-                { id: "goals", label: "2. Goals Markets (15)" },
-                { id: "combo", label: "3. Combinations (5)" },
+                { id: "all", label: `All (${odds?.markets.length ?? 27})` },
+                { id: "result", label: "Match Result" },
+                { id: "half_time", label: "1st & 2nd Half" },
+                { id: "goals", label: "Goals" },
+                { id: "combo", label: "Combinations" },
               ] as const
             ).map((tab) => (
               <button

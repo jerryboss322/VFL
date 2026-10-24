@@ -21,23 +21,39 @@ from app.services.odds_engine import generate_fixture_markets
 from engine.simulator import MATCH_DURATION_SECONDS, MatchEngine
 
 
-def _generate_pairings(clubs: list[Club], round_idx: int) -> list[tuple[Club, Club]]:
-    """Circle method round-robin rotation for arbitrary matchdays."""
+HALFTIME_BREAK_SECONDS = 10  # 10-second tactical interval after 1st half
+
+
+def get_season_pairings(clubs: list[Club], matchday: int) -> list[tuple[Club, Club]]:
+    """Double round-robin generator: exactly 38 matchdays for 20 clubs, 34 for 18 clubs."""
     n = len(clubs)
     if n < 2:
         return []
+    half_season = n - 1
+    total_mds = half_season * 2
+    md_idx = (matchday - 1) % total_mds
+
     rotation = list(clubs)
-    for _ in range(round_idx % max(1, n - 1)):
+    rounds: list[list[tuple[Club, Club]]] = []
+    # 1st half of the season
+    for r in range(half_season):
+        pairings: list[tuple[Club, Club]] = []
+        for i in range(n // 2):
+            c1 = rotation[i]
+            c2 = rotation[n - 1 - i]
+            if r % 2 == 0:
+                pairings.append((c1, c2))
+            else:
+                pairings.append((c2, c1))
+        rounds.append(pairings)
         rotation = [rotation[0]] + [rotation[-1]] + rotation[1:-1]
-    pairings: list[tuple[Club, Club]] = []
-    for i in range(n // 2):
-        c1 = rotation[i]
-        c2 = rotation[n - 1 - i]
-        if round_idx % 2 == 0:
-            pairings.append((c1, c2))
-        else:
-            pairings.append((c2, c1))
-    return pairings
+
+    # 2nd half of the season: reverse home and away
+    for r in range(half_season):
+        pairings = [(c2, c1) for c1, c2 in rounds[r]]
+        rounds.append(pairings)
+
+    return rounds[md_idx]
 
 
 async def _cleanup_duplicate_fixtures(session) -> int:
@@ -140,15 +156,49 @@ async def _ensure_infinite_upcoming_fixtures(session, now: datetime, pre_match: 
             if len(clubs) < 2:
                 continue
 
+            # 20 clubs league: 38 matchdays per season. 18 clubs league: 34 matchdays per season.
+            max_season_md = 38 if len(clubs) >= 20 else 34
+
+            if max_md >= max_season_md:
+                # Check if all fixtures in this season are completed before rolling over
+                uncompleted_res = await session.execute(
+                    select(Fixture.id).where(
+                        Fixture.season_id == season.id,
+                        Fixture.status != "completed",
+                    ).limit(1)
+                )
+                if uncompleted_res.scalar_one_or_none() is None:
+                    season.is_active = False
+                    season_count_res = await session.execute(
+                        select(Season).where(Season.league_id == lg.id)
+                    )
+                    total_seasons = len(season_count_res.scalars().all())
+                    season = Season(
+                        league_id=lg.id,
+                        name=f"{lg.short_name} Season {total_seasons + 1}",
+                        year=now.year,
+                        is_active=True,
+                    )
+                    session.add(season)
+                    await session.flush()
+                    max_md = 0
+                else:
+                    continue
+
             # Determine kickoff base timestamp for new matchdays
             if latest_fx and latest_fx.status == "upcoming":
                 base_time = _parse_iso(latest_fx.kickoff_at)
             else:
                 base_time = now + timedelta(seconds=pre_match)
 
-            # Generate 4 additional matchdays
+            match_cycle_seconds = MATCH_DURATION_SECONDS + HALFTIME_BREAK_SECONDS + pre_match
+
+            # Generate additional matchdays (capped at max_season_md)
             for offset_idx in range(1, 5):
                 target_md = max_md + offset_idx
+                if target_md > max_season_md:
+                    break
+
                 # Check existing fixtures for target_md in this season
                 existing_target_res = await session.execute(
                     select(Fixture).where(
@@ -162,8 +212,8 @@ async def _ensure_infinite_upcoming_fixtures(session, now: datetime, pre_match: 
 
                 booked_clubs = {f.home_club_id for f in existing_target} | {f.away_club_id for f in existing_target}
 
-                ko_time = base_time + timedelta(seconds=offset_idx * (MATCH_DURATION_SECONDS + pre_match))
-                pairings = _generate_pairings(clubs, target_md)
+                ko_time = base_time + timedelta(seconds=offset_idx * match_cycle_seconds)
+                pairings = get_season_pairings(clubs, target_md)
                 for home, away in pairings:
                     if home.id in booked_clubs or away.id in booked_clubs:
                         continue  # Already playing on this matchday
@@ -285,12 +335,20 @@ async def run_simulation_tick() -> dict:
                 state = await engine.start_match(fx)
             started = _parse_iso(fx.kickoff_at)
             elapsed = int((now - started).total_seconds()) * settings.SIMULATION_SPEED_MULTIPLIER
-            target = max(state.clock_seconds + 1, min(MATCH_DURATION_SECONDS, elapsed))
+            if elapsed < 240:
+                target_sim_clock = min(240, elapsed)
+            elif elapsed < 240 + HALFTIME_BREAK_SECONDS:
+                # 10-second half-time interval (pinned to 45' HT)
+                target_sim_clock = 240
+            else:
+                target_sim_clock = min(MATCH_DURATION_SECONDS, elapsed - HALFTIME_BREAK_SECONDS)
+
+            target = max(state.clock_seconds, target_sim_clock)
             new_state = await engine.advance_tick(fx, min(MATCH_DURATION_SECONDS, target))
             advanced += 1
             if new_state.status == "completed":
                 finished_at = started + timedelta(
-                    seconds=MATCH_DURATION_SECONDS / max(1, settings.SIMULATION_SPEED_MULTIPLIER)
+                    seconds=(MATCH_DURATION_SECONDS + HALFTIME_BREAK_SECONDS) / max(1, settings.SIMULATION_SPEED_MULTIPLIER)
                 )
 
         # 3. Once the whole matchday is done, schedule the following matchdays

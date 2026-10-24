@@ -101,7 +101,7 @@ def _generate_match_events(
     home_goals_target = min(5, _sample_poisson(lam_home, rng))
     away_goals_target = min(5, _sample_poisson(lam_away, rng))
 
-    action_ticks = [t for t in _TIMELINE_SLOTS if t not in (0, MATCH_DURATION_SECONDS)]
+    action_ticks = [t for t in _TIMELINE_SLOTS if t not in (0, 240, MATCH_DURATION_SECONDS)]
     total_goals = min(len(action_ticks), home_goals_target + away_goals_target)
 
     # Randomly select which action slots will be goals across the match timeline
@@ -126,6 +126,26 @@ def _generate_match_events(
                     "club_id": None,
                     "text": f"Kick-off: {home_club.name} vs {away_club.name}",
                     "payload": {"side": None, "club_id": None, "display_minute": 1},
+                }
+            )
+            continue
+
+        if tick == 240:
+            events.append(
+                {
+                    "fixture_id": fixture_id,
+                    "event_seq": seq,
+                    "event_type": "half_time",
+                    "minute": 240,
+                    "club_id": None,
+                    "text": "Half-time whistle blown (45'). 10-second interval.",
+                    "payload": {
+                        "side": None,
+                        "club_id": None,
+                        "display_minute": 45,
+                        "is_halftime": True,
+                        "break_seconds": 10,
+                    },
                 }
             )
             continue

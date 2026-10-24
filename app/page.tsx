@@ -19,6 +19,7 @@ import type {
 
 function clockToMinute(clockSeconds: number | null): string {
   if (clockSeconds === null || clockSeconds <= 0) return "1'";
+  if (clockSeconds === 240) return "45' HT (10s Break)";
   if (clockSeconds >= 480) return "FT";
   const min = Math.max(1, Math.min(90, Math.round((clockSeconds / 480) * 90)));
   return `${min}'`;
@@ -165,20 +166,60 @@ export default function HomePage() {
     };
   }, [selectedLeagueId, loadFixtures]);
 
-  const matchdays = useMemo(() => {
-    const map = new Map<number, { matchday: number; status: FixtureStatus }>();
-    for (const f of fixtures) {
-      const prev = map.get(f.matchday);
-      if (!prev) {
-        map.set(f.matchday, { matchday: f.matchday, status: f.status });
-      } else if (f.status === "live") {
-        prev.status = "live";
-      } else if (f.status === "upcoming" && prev.status === "completed") {
-        prev.status = "upcoming";
+  const currentMd = useMemo(() => {
+    const live = fixtures.find((f) => f.status === "live");
+    if (live) return live.matchday;
+    const upcoming = fixtures.filter((f) => f.status === "upcoming");
+    if (upcoming.length > 0) return Math.min(...upcoming.map((f) => f.matchday));
+    if (fixtures.length > 0) return Math.max(...fixtures.map((f) => f.matchday));
+    return 1;
+  }, [fixtures]);
+
+  // Max matchdays: 34 for 18-club leagues (Ligue 1, Eredivisie), 38 for 20-club leagues
+  const maxSeasonMd = useMemo(() => {
+    if (selectedLeague?.shortName === "FL1" || selectedLeague?.shortName === "ERE") {
+      return 34;
+    }
+    return 38;
+  }, [selectedLeague]);
+
+  // Restrict matchday ribbon to strictly: Previous, Current, Next
+  const threeMatchdays = useMemo(() => {
+    const prev = currentMd > 1 ? currentMd - 1 : null;
+    const curr = currentMd;
+    const next = currentMd < maxSeasonMd ? currentMd + 1 : null;
+
+    const statusForMd = (md: number): FixtureStatus => {
+      const mFx = fixtures.filter((f) => f.matchday === md);
+      if (mFx.some((f) => f.status === "live")) return "live";
+      if (mFx.some((f) => f.status === "upcoming")) return "upcoming";
+      return "completed";
+    };
+
+    const list: Array<{
+      matchday: number;
+      slot: "previous" | "current" | "next";
+      status: FixtureStatus;
+    }> = [];
+
+    if (prev !== null) {
+      list.push({ matchday: prev, slot: "previous", status: statusForMd(prev) });
+    }
+    list.push({ matchday: curr, slot: "current", status: statusForMd(curr) });
+    if (next !== null) {
+      list.push({ matchday: next, slot: "next", status: statusForMd(next) });
+    }
+    return list;
+  }, [currentMd, maxSeasonMd, fixtures]);
+
+  useEffect(() => {
+    if (threeMatchdays.length > 0) {
+      const valid = threeMatchdays.map((m) => m.matchday);
+      if (typeof selectedMatchday !== "number" || !valid.includes(selectedMatchday)) {
+        setSelectedMatchday(currentMd);
       }
     }
-    return Array.from(map.values()).sort((a, b) => a.matchday - b.matchday);
-  }, [fixtures]);
+  }, [currentMd, threeMatchdays, selectedMatchday]);
 
   const liveFixturesAll = useMemo(
     () => fixtures.filter((f) => f.status === "live"),
@@ -193,8 +234,9 @@ export default function HomePage() {
 
   const visibleFixtures = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const targetMd = typeof selectedMatchday === "number" ? selectedMatchday : currentMd;
     return fixtures.filter((f) => {
-      if (selectedMatchday !== "all" && f.matchday !== selectedMatchday) return false;
+      if (f.matchday !== targetMd) return false;
       if (statusFilter !== "all" && f.status !== statusFilter) return false;
       if (
         favOnly &&
@@ -214,7 +256,7 @@ export default function HomePage() {
       }
       return true;
     });
-  }, [fixtures, selectedMatchday, statusFilter, favOnly, favoriteClubs, searchQuery]);
+  }, [fixtures, selectedMatchday, currentMd, statusFilter, favOnly, favoriteClubs, searchQuery]);
 
   useEffect(() => {
     async function loadOddsData() {
@@ -410,49 +452,46 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Matchday Ribbon */}
+      {/* Matchday Ribbon: Strictly Previous, Current, Next */}
       <div
-        className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1"
+        className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
         role="tablist"
-        aria-label="Matchdays"
+        aria-label="Matchdays Navigation"
       >
-        {matchdays.map(({ matchday: md, status }) => {
+        {threeMatchdays.map(({ matchday: md, slot, status }) => {
           const isSelected = selectedMatchday === md;
           return (
             <button
               key={md}
               type="button"
               onClick={() => setSelectedMatchday(md)}
-              className={`min-h-[32px] shrink-0 inline-flex items-center gap-1.5 rounded px-3 py-1 font-mono text-xs font-semibold transition-all ${
+              className={`min-h-[34px] shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-1.5 font-mono text-xs font-semibold transition-all ${
                 isSelected
-                  ? "bg-graphite text-accent font-bold border-b-2 border-accent"
+                  ? "bg-graphite text-accent font-bold border-b-2 border-accent shadow-sm"
                   : "bg-coal text-fog hover:text-white hover:bg-graphite"
               }`}
             >
-              <span>MD {md}</span>
+              <span className="uppercase tracking-wider">
+                {slot === "previous"
+                  ? `PREVIOUS (MD ${md})`
+                  : slot === "current"
+                    ? `CURRENT (MD ${md})`
+                    : `NEXT (MD ${md})`}
+              </span>
               {status === "live" && (
-                <span className="live-dot h-1.5 w-1.5 rounded-full bg-live" title="Live" />
+                <span className="live-dot h-2 w-2 rounded-full bg-live" title="Live In-Play" />
               )}
               {status === "completed" && (
                 <span className="text-[10px] text-fog">FT</span>
               )}
-              {status === "upcoming" && md === nextMdNumber && (
-                <span className="text-[10px] font-bold text-accent">OPEN</span>
+              {status === "upcoming" && (
+                <span className="rounded bg-accent/20 px-1.5 py-0.2 text-[10px] font-bold text-accent">
+                  OPEN
+                </span>
               )}
             </button>
           );
         })}
-        <button
-          type="button"
-          onClick={() => setSelectedMatchday("all")}
-          className={`min-h-[32px] shrink-0 rounded px-3 py-1 font-mono text-xs font-semibold transition-all ${
-            selectedMatchday === "all"
-              ? "bg-graphite text-accent font-bold border-b-2 border-accent"
-              : "bg-coal text-fog hover:text-white hover:bg-graphite"
-          }`}
-        >
-          All
-        </button>
       </div>
 
       {/* Market Selector & Status Filter Bar */}
@@ -469,9 +508,13 @@ export default function HomePage() {
                 { key: "draw_no_bet", label: "Draw No Bet" },
                 { key: "over_under_2_5", label: "Goals Over/Under" },
                 { key: "both_teams_to_score", label: "Both Teams to Score" },
-                { key: "half_time_result", label: "Half Time Result" },
+                { key: "half_time_result", label: "1st Half Result" },
+                { key: "second_half_result", label: "2nd Half Result" },
+                { key: "first_half_goals_ou", label: "1st Half Over/Under" },
+                { key: "second_half_goals_ou", label: "2nd Half Over/Under" },
+                { key: "first_half_btts", label: "1st Half BTTS" },
+                { key: "second_half_btts", label: "2nd Half BTTS" },
                 { key: "odd_even_goals", label: "Odd/Even Goals" },
-                { key: "first_team_to_score", label: "First Team to Score" },
               ] as const
             ).map((m) => (
               <button
@@ -562,6 +605,10 @@ export default function HomePage() {
             const isUpcoming = fx.status === "upcoming";
             const isLive = fx.status === "live";
             const isCompleted = fx.status === "completed";
+            const isHalftime = isLive && fx.clockSeconds === 240;
+            const attackSeed = ((fx.clockSeconds ?? 0) * 17) % 100;
+            const isHomeAttacking = isLive && !isHalftime && attackSeed < 53;
+            const isAwayAttacking = isLive && !isHalftime && !isHomeAttacking;
 
             const fxKoMs = new Date(fx.kickoffAt).getTime();
             const fxSecLeft = Math.max(0, Math.round((fxKoMs - nowMs) / 1000));
@@ -577,16 +624,16 @@ export default function HomePage() {
                     isLive
                       ? "b365-score-live"
                       : isUpcoming
-                        ? "bg-[#16181B] border border-[#2B3036] text-white"
-                        : "bg-[#16181B] text-[#A3ACB5]"
+                        ? "bg-coal border border-line text-white"
+                        : "bg-coal text-fog"
                   }`}>
-                    <span className="text-[10px] font-bold uppercase text-[#A3ACB5]">
+                    <span className="text-[10px] font-bold uppercase text-fog">
                       MD {fx.matchday}
                     </span>
                     {isLive && (
-                      <span className="tnum mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-live">
-                        <span className="live-dot h-1 w-1 rounded-full bg-live" />
-                        {clockToMinute(fx.clockSeconds)}
+                      <span className={`tnum mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold ${isHalftime ? "text-gold" : "text-live"}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${isHalftime ? "bg-gold" : "bg-live live-dot"}`} />
+                        {isHalftime ? "HT 10s" : clockToMinute(fx.clockSeconds)}
                       </span>
                     )}
                     {isUpcoming && (
@@ -600,7 +647,7 @@ export default function HomePage() {
                       </span>
                     )}
                     {isCompleted && (
-                      <span className="mt-0.5 text-[11px] font-semibold text-[#A3ACB5]">FT</span>
+                      <span className="mt-0.5 text-[11px] font-semibold text-fog">FT</span>
                     )}
                   </div>
 
@@ -630,6 +677,12 @@ export default function HomePage() {
                         >
                           {fx.home.name}
                         </Link>
+                        {isHomeAttacking && (
+                          <span className="inline-flex items-center gap-1 rounded bg-blue-600/25 px-1.5 py-0.2 font-mono text-[9px] font-bold text-blue-400 border border-blue-500/40 animate-pulse">
+                            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                            ATTACKING
+                          </span>
+                        )}
                       </div>
                       {(isLive || isCompleted) && (
                         <div
@@ -669,13 +722,19 @@ export default function HomePage() {
                         >
                           {fx.away.name}
                         </Link>
+                        {isAwayAttacking && (
+                          <span className="inline-flex items-center gap-1 rounded bg-red-600/25 px-1.5 py-0.2 font-mono text-[9px] font-bold text-red-400 border border-red-500/40 animate-pulse">
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                            ATTACKING
+                          </span>
+                        )}
                       </div>
                       {(isLive || isCompleted) && (
                         <div
                           className={`tnum font-mono text-xs font-bold px-2 py-0.5 rounded min-w-[24px] text-center ${
                             isLive
                               ? "bg-live/25 text-live font-black"
-                              : "bg-[#16181B] text-white border border-[#2B3036]"
+                              : "bg-coal text-white border border-line"
                           }`}
                         >
                           {fx.awayGoals ?? 0}

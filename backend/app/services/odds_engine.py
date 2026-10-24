@@ -27,8 +27,10 @@ across 27 comprehensive markets organized into 3 categories:
    - correct_score (Full-Time Correct Score)
    - odd_even_goals (Odd/Even Total Goals)
    - team_to_score (Team to Score: Home Only, Away Only, Both, Neither)
-   - first_team_to_score (First Team to Score: Home, No Goal, Away)
    - last_team_to_score (Last Team to Score: Home, No Goal, Away)
+   - second_half_result (2nd Half Result 1X2: Home, Draw, Away)
+   - first_half_btts (1st Half Both Teams to Score: Yes, No)
+   - second_half_btts (2nd Half Both Teams to Score: Yes, No)
    - first_half_goals_ou (First-Half Goals Over/Under 0.5, 1.5, 2.5)
    - second_half_goals_ou (Second-Half Goals Over/Under 0.5, 1.5, 2.5)
    - ht_correct_score (Half-Time Correct Score)
@@ -520,6 +522,17 @@ def generate_fixture_markets(
     p_dnb_home = p_home / non_draw
     p_dnb_away = p_away / non_draw
 
+    # 2nd Half Result probabilities
+    p_2h_home = sum(p for (h, a), p in h2_grid.items() if h > a)
+    p_2h_draw = sum(p for (h, a), p in h2_grid.items() if h == a)
+    p_2h_away = sum(p for (h, a), p in h2_grid.items() if h < a)
+
+    # 1st & 2nd Half Both Teams to Score probabilities
+    p_1h_btts_yes = sum(p for (h, a), p in h1_grid.items() if h >= 1 and a >= 1)
+    p_1h_btts_no = max(0.02, 1.0 - p_1h_btts_yes)
+    p_2h_btts_yes = sum(p for (h, a), p in h2_grid.items() if h >= 1 and a >= 1)
+    p_2h_btts_no = max(0.02, 1.0 - p_2h_btts_yes)
+
     return [
         # ==================== 1. MATCH RESULT MARKETS ====================
         {
@@ -559,12 +572,22 @@ def generate_fixture_markets(
         },
         {
             "key": "half_time_result",
-            "category": "result",
-            "label": "Half-Time Result",
+            "category": "half_time",
+            "label": "1st Half Result (1X2)",
             "options": [
-                _opt(f"{fid}:ht_result:home", "ht_home", f"{home_name} (HT)", p_ht_home),
-                _opt(f"{fid}:ht_result:draw", "ht_draw", "Draw (HT)", p_ht_draw),
-                _opt(f"{fid}:ht_result:away", "ht_away", f"{away_name} (HT)", p_ht_away),
+                _opt(f"{fid}:ht_result:home", "ht_home", f"{home_name} (1H)", p_ht_home),
+                _opt(f"{fid}:ht_result:draw", "ht_draw", "Draw (1H)", p_ht_draw),
+                _opt(f"{fid}:ht_result:away", "ht_away", f"{away_name} (1H)", p_ht_away),
+            ],
+        },
+        {
+            "key": "second_half_result",
+            "category": "half_time",
+            "label": "2nd Half Result (1X2)",
+            "options": [
+                _opt(f"{fid}:2h_result:home", "2h_home", f"{home_name} (2H)", p_2h_home),
+                _opt(f"{fid}:2h_result:draw", "2h_draw", "Draw (2H)", p_2h_draw),
+                _opt(f"{fid}:2h_result:away", "2h_away", f"{away_name} (2H)", p_2h_away),
             ],
         },
         {
@@ -692,13 +715,21 @@ def generate_fixture_markets(
             ],
         },
         {
-            "key": "first_team_to_score",
-            "category": "goals",
-            "label": "First Team to Score",
+            "key": "first_half_btts",
+            "category": "half_time",
+            "label": "1st Half Both Teams to Score",
             "options": [
-                _opt(f"{fid}:first_goal:home", "first_goal_home", f"{home_name} First", p_first_home),
-                _opt(f"{fid}:first_goal:none", "first_goal_none", "No Goal (0-0)", p_no_goal),
-                _opt(f"{fid}:first_goal:away", "first_goal_away", f"{away_name} First", p_first_away),
+                _opt(f"{fid}:1h_btts:yes", "1h_btts_yes", "1H BTTS Yes", p_1h_btts_yes),
+                _opt(f"{fid}:1h_btts:no", "1h_btts_no", "1H BTTS No", p_1h_btts_no),
+            ],
+        },
+        {
+            "key": "second_half_btts",
+            "category": "half_time",
+            "label": "2nd Half Both Teams to Score",
+            "options": [
+                _opt(f"{fid}:2h_btts:yes", "2h_btts_yes", "2H BTTS Yes", p_2h_btts_yes),
+                _opt(f"{fid}:2h_btts:no", "2h_btts_no", "2H BTTS No", p_2h_btts_no),
             ],
         },
         {
@@ -713,13 +744,13 @@ def generate_fixture_markets(
         },
         {
             "key": "first_half_goals_ou",
-            "category": "goals",
+            "category": "half_time",
             "label": "First-Half Goals Over/Under",
             "options": h1_ou_opts,
         },
         {
             "key": "second_half_goals_ou",
-            "category": "goals",
+            "category": "half_time",
             "label": "Second-Half Goals Over/Under",
             "options": h2_ou_opts,
         },
@@ -1029,14 +1060,31 @@ def evaluate_selection_outcome(
         if out == "tts_neither":
             return total == 0
 
-    # 17. First Team to Score
-    if key == "first_team_to_score":
-        if out == "first_goal_home":
-            return first_scorer == "home"
-        if out == "first_goal_away":
-            return first_scorer == "away"
-        if out == "first_goal_none":
-            return total == 0
+    # 17. 2nd Half Result (1X2)
+    if key in ("second_half_result", "2h_result"):
+        h2_res = "home" if h2_h > h2_a else ("draw" if h2_h == h2_a else "away")
+        if out in ("2h_home", "home") or oid.endswith(":home"):
+            return h2_res == "home"
+        if out in ("2h_draw", "draw") or oid.endswith(":draw"):
+            return h2_res == "draw"
+        if out in ("2h_away", "away") or oid.endswith(":away"):
+            return h2_res == "away"
+
+    # 18. 1st Half Both Teams to Score
+    if key in ("first_half_btts", "1h_btts"):
+        h1_btts = ht_h >= 1 and ht_a >= 1
+        if out in ("1h_btts_yes", "yes") or oid.endswith(":yes"):
+            return h1_btts
+        if out in ("1h_btts_no", "no") or oid.endswith(":no"):
+            return not h1_btts
+
+    # 19. 2nd Half Both Teams to Score
+    if key in ("second_half_btts", "2h_btts"):
+        h2_btts = h2_h >= 1 and h2_a >= 1
+        if out in ("2h_btts_yes", "yes") or oid.endswith(":yes"):
+            return h2_btts
+        if out in ("2h_btts_no", "no") or oid.endswith(":no"):
+            return not h2_btts
 
     # 18. Last Team to Score
     if key == "last_team_to_score":

@@ -184,12 +184,17 @@ LEAGUE_DEFINITIONS = [
 def _generate_round_robin_pairings(
     clubs: list[Club], num_matchdays: int = 6
 ) -> list[list[tuple[Club, Club]]]:
-    """Circle-method round-robin generator for even number of clubs."""
+    """Double round-robin generator: 38 matchdays for 20 clubs, 34 for 18 clubs."""
     n = len(clubs)
+    half_season = n - 1
+    total_mds = half_season * 2
+    count = min(num_matchdays, total_mds)
+
     rotation = list(clubs)
     rounds: list[list[tuple[Club, Club]]] = []
 
-    for r in range(num_matchdays):
+    # 1st half of the season
+    for r in range(half_season):
         pairings: list[tuple[Club, Club]] = []
         for i in range(n // 2):
             c1 = rotation[i]
@@ -201,7 +206,12 @@ def _generate_round_robin_pairings(
         rounds.append(pairings)
         rotation = [rotation[0]] + [rotation[-1]] + rotation[1:-1]
 
-    return rounds
+    # 2nd half of the season (reverse home/away)
+    for r in range(half_season):
+        pairings = [(c2, c1) for c1, c2 in rounds[r]]
+        rounds.append(pairings)
+
+    return rounds[:count]
 
 
 async def seed(force_reset: bool = False):
