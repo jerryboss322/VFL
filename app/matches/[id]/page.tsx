@@ -7,6 +7,9 @@ import { useApp } from "@/components/AppContext";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ClubBadge } from "@/components/ClubBadge";
 import { StatePanel } from "@/components/StatePanel";
+import { MatchPitchRadar } from "@/components/MatchPitchRadar";
+import { MatchMomentumChart } from "@/components/MatchMomentumChart";
+import { TacticalHeatmap } from "@/components/TacticalHeatmap";
 import { api } from "@/lib/api/client";
 import { playGoalChime, playWhistleSound } from "@/lib/sound";
 import type {
@@ -54,6 +57,7 @@ export default function MatchDetailPage() {
   // Simulation Replay scrubber for completed matches
   const [replayMode, setReplayMode] = useState<boolean>(false);
   const [replaySecond, setReplaySecond] = useState<number>(480);
+  const [tacticalView, setTacticalView] = useState<"radar" | "momentum" | "heatmap">("radar");
 
   const loadData = useCallback(async () => {
     if (!fixtureId) return;
@@ -410,170 +414,81 @@ export default function MatchDetailPage() {
           </div>
         </div>
 
-        {/* 2D Animated SVG Tactical Pitch Visualizer */}
-        <div className="my-5 overflow-hidden rounded-card border border-line bg-ink p-3.5">
-          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 font-mono text-[11px]">
-            <div className="flex items-center gap-2">
-              <span className="uppercase tracking-wider text-fog font-bold">
-                TACTICAL RADAR
-              </span>
-              {pitchTelemetry.side === "home" ? (
-                <span className="inline-flex items-center gap-1.5 rounded bg-blue-600/20 px-2 py-0.5 text-[11px] font-bold text-blue-400 border border-blue-500/50 shadow-sm shadow-blue-500/20">
-                  <span className="h-2 w-2 rounded-full bg-blue-500 animate-ping" />
-                  ATTACKING: {fixture.home.name.toUpperCase()} (HOME • BLUE →)
-                </span>
-              ) : pitchTelemetry.side === "away" ? (
-                <span className="inline-flex items-center gap-1.5 rounded bg-red-600/20 px-2 py-0.5 text-[11px] font-bold text-red-400 border border-red-500/50 shadow-sm shadow-red-500/20">
-                  <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
-                  (← AWAY • RED) ATTACKING: {fixture.away.name.toUpperCase()}
-                </span>
-              ) : effectiveClock === 240 && !isCompleted ? (
-                <span className="inline-flex items-center gap-1.5 rounded bg-gold/20 px-2 py-0.5 text-[11px] font-bold text-gold border border-gold/40">
-                  <span className="h-2 w-2 rounded-full bg-gold" />
-                  HALF-TIME (10s BREAK)
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded bg-graphite px-2 py-0.5 text-[10px] text-fog">
-                  MIDFIELD PHASE
-                </span>
-              )}
+        {/* Tactical Match Center: 2D Pitch Radar, Attacking Momentum & Heatmap */}
+        <div className="my-5 space-y-3">
+          {/* Tactical View Switcher Tabs */}
+          <div className="flex items-center justify-between border-b border-line pb-2 text-xs font-mono">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setTacticalView("radar")}
+                className={`rounded px-3 py-1.5 font-bold transition-all ${
+                  tacticalView === "radar"
+                    ? "bg-accent text-white shadow-sm"
+                    : "bg-surface text-fog hover:text-white"
+                }`}
+              >
+                ⚽ 2D Pitch Radar
+              </button>
+              <button
+                type="button"
+                onClick={() => setTacticalView("momentum")}
+                className={`rounded px-3 py-1.5 font-bold transition-all ${
+                  tacticalView === "momentum"
+                    ? "bg-accent text-white shadow-sm"
+                    : "bg-surface text-fog hover:text-white"
+                }`}
+              >
+                📈 Attacking Momentum
+              </button>
+              <button
+                type="button"
+                onClick={() => setTacticalView("heatmap")}
+                className={`rounded px-3 py-1.5 font-bold transition-all ${
+                  tacticalView === "heatmap"
+                    ? "bg-accent text-white shadow-sm"
+                    : "bg-surface text-fog hover:text-white"
+                }`}
+              >
+                🔥 Tactical Heatmap
+              </button>
             </div>
-            <span className="truncate text-peach font-semibold">{pitchTelemetry.label}</span>
+            <div className="hidden sm:flex items-center gap-2 text-[11px] text-fog">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+              <span>LIVE TELEMETRY</span>
+            </div>
           </div>
-          <svg
-            viewBox="0 0 100 56"
-            className="h-40 w-full rounded-control border border-line bg-[#0B111A] sm:h-48"
-            role="img"
-            aria-label="2D Football Pitch Visualizer"
-          >
-            {/* SVG Defs for Attacking Waves: Home is Blue, Away is Red */}
-            <defs>
-              <linearGradient id="homeAttackGlow" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#0080FF" stopOpacity="0" />
-                <stop offset="100%" stopColor="#0080FF" stopOpacity="0.30" />
-              </linearGradient>
-              <linearGradient id="awayAttackGlow" x1="1" y1="0" x2="0" y2="0">
-                <stop offset="0%" stopColor="#FF2D55" stopOpacity="0" />
-                <stop offset="100%" stopColor="#FF2D55" stopOpacity="0.30" />
-              </linearGradient>
-            </defs>
 
-            {/* Tactical attacking third pressure highlights */}
-            {pitchTelemetry.side === "home" && (
-              <rect x="50" y="2" width="48" height="52" fill="url(#homeAttackGlow)" />
-            )}
-            {pitchTelemetry.side === "away" && (
-              <rect x="2" y="2" width="48" height="52" fill="url(#awayAttackGlow)" />
-            )}
+          {/* Active View Render */}
+          {tacticalView === "radar" && (
+            <MatchPitchRadar
+              fixture={fixture}
+              events={events}
+              clockSeconds={effectiveClock}
+              isLive={isLive}
+            />
+          )}
 
-            {/* Outer pitch lines */}
-            <rect
-              x="2"
-              y="2"
-              width="96"
-              height="52"
-              fill="none"
-              stroke="#242F44"
-              strokeWidth="0.6"
+          {tacticalView === "momentum" && (
+            <MatchMomentumChart
+              fixture={fixture}
+              events={events}
+              clockSeconds={effectiveClock}
+              isLive={isLive}
             />
-            {/* Halfway line & center circle */}
-            <line x1="50" y1="2" x2="50" y2="54" stroke="#242F44" strokeWidth="0.6" />
-            <circle
-              cx="50"
-              cy="28"
-              r="7"
-              fill="none"
-              stroke="#242F44"
-              strokeWidth="0.6"
-            />
-            <circle cx="50" cy="28" r="0.8" fill="#6CA6E8" />
-            {/* Left penalty box */}
-            <rect
-              x="2"
-              y="13"
-              width="14"
-              height="30"
-              fill="none"
-              stroke="#242F44"
-              strokeWidth="0.6"
-            />
-            <rect
-              x="2"
-              y="20"
-              width="5"
-              height="16"
-              fill="none"
-              stroke="#242F44"
-              strokeWidth="0.6"
-            />
-            {/* Right penalty box */}
-            <rect
-              x="84"
-              y="13"
-              width="14"
-              height="30"
-              fill="none"
-              stroke="#242F44"
-              strokeWidth="0.6"
-            />
-            <rect
-              x="93"
-              y="20"
-              width="5"
-              height="16"
-              fill="none"
-              stroke="#242F44"
-              strokeWidth="0.6"
-            />
+          )}
 
-            {/* Goal markers on timeline */}
-            {visibleEvents
-              .filter((e) => e.type === "goal")
-              .map((g, i) => {
-                const isH = g.payload?.side === "home";
-                return (
-                  <circle
-                    key={g.id || i}
-                    cx={isH ? 91 : 9}
-                    cy={18 + ((i * 7) % 20)}
-                    r="1.4"
-                    fill={isH ? "#0080FF" : "#FF2D55"}
-                    opacity="0.9"
-                  />
-                );
-              })}
-
-            {/* Active Ball Position: Home Attacking = Blue (#0080FF), Away Attacking = Red (#FF2D55) */}
-            <circle
-              cx={pitchTelemetry.x}
-              cy={(pitchTelemetry.y / 100) * 52 + 2}
-              r="4.2"
-              fill={
-                pitchTelemetry.side === "home"
-                  ? "#0080FF"
-                  : pitchTelemetry.side === "away"
-                    ? "#FF2D55"
-                    : "#00E599"
-              }
-              opacity="0.30"
-              className="animate-pulse"
+          {tacticalView === "heatmap" && (
+            <TacticalHeatmap
+              fixture={fixture}
+              events={events}
+              clockSeconds={effectiveClock}
             />
-            <circle
-              cx={pitchTelemetry.x}
-              cy={(pitchTelemetry.y / 100) * 52 + 2}
-              r="1.6"
-              fill={
-                pitchTelemetry.side === "home"
-                  ? "#0080FF"
-                  : pitchTelemetry.side === "away"
-                    ? "#FF2D55"
-                    : "#FFFFFF"
-              }
-              stroke="#FFFFFF"
-              strokeWidth="0.6"
-            />
-          </svg>
+          )}
         </div>
+
+
+
 
         {/* 90-Minute Match Progress Timeline Bar + Simulation Replay Controls */}
         <div className="space-y-2">
