@@ -12,3 +12,9 @@ from app.models.season import Season  # noqa: F401
 from app.models.staff import StaffInvitation  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.wallet import Wallet  # noqa: F401
+from app.models.fantasy import (  # noqa: F401
+    FantasyLeague,
+    FantasyRoster,
+    FantasyGameweekScore,
+    FantasyPlayerValuation,
+)
