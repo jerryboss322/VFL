@@ -11,6 +11,7 @@ import { MatchPitchRadar } from "@/components/MatchPitchRadar";
 import { MatchMomentumChart } from "@/components/MatchMomentumChart";
 import { TacticalHeatmap } from "@/components/TacticalHeatmap";
 import { PlayerRosterRadar } from "@/components/PlayerRosterRadar";
+import { AsianHandicapTable } from "@/components/AsianHandicapTable";
 import { api } from "@/lib/api/client";
 import { playGoalChime, playWhistleSound } from "@/lib/sound";
 import type {
@@ -52,7 +53,7 @@ export default function MatchDetailPage() {
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   // Market category tab & search
-  const [marketCategory, setMarketCategory] = useState<"all" | MarketCategory>("all");
+  const [marketCategory, setMarketCategory] = useState<"all" | "asian" | MarketCategory>("all");
   const [marketSearch, setMarketSearch] = useState<string>("");
 
   // Simulation Replay scrubber for completed matches
@@ -586,6 +587,7 @@ export default function MatchDetailPage() {
               [
                 { id: "all", label: `All (${odds?.markets.length ?? 27})` },
                 { id: "result", label: "Match Result" },
+                { id: "asian", label: "Asian Handicap" },
                 { id: "half_time", label: "1st & 2nd Half" },
                 { id: "goals", label: "Goals" },
                 { id: "combo", label: "Combinations" },
@@ -617,7 +619,13 @@ export default function MatchDetailPage() {
           </div>
         </div>
 
-        {filteredMarkets.length === 0 ? (
+        {(marketCategory === "asian" || (marketCategory === "all" && !marketSearch)) && (
+          <div className="mb-4">
+            <AsianHandicapTable fixture={fixture} />
+          </div>
+        )}
+
+        {marketCategory !== "asian" && filteredMarkets.length === 0 ? (
           <StatePanel tone="empty" title="No markets match your filter" />
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
