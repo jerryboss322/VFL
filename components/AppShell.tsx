@@ -18,6 +18,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/table", label: "Standings" },
   { href: "/tournaments", label: "Cup Bracket" },
   { href: "/fantasy", label: "Fantasy Hub" },
+  { href: "/fantasy-draft", label: "Draft Room" },
   { href: "/player-exchange", label: "Player Exchange" },
   { href: "/copy-trading", label: "Copy Trading" },
   { href: "/bot-studio", label: "Bot Studio" },
