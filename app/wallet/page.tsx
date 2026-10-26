@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/AppContext";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { StatePanel } from "@/components/StatePanel";
+import { CurrencySelector, CURRENCY_SYMBOLS, EXCHANGE_RATES_FROM_XTS, type DisplayCurrency } from "@/components/CurrencySelector";
+import { CryptoDepositModal } from "@/components/CryptoDepositModal";
 import { api } from "@/lib/api/client";
 import { formatMinor } from "@/lib/betslip";
 import type { Transaction } from "@/types/api";
@@ -14,6 +16,8 @@ export default function WalletPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<DisplayCurrency>("XTS");
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
 
   const userId = user?.id ?? null;
 
@@ -88,9 +92,27 @@ export default function WalletPage() {
   const reserved = wallet?.reservedMinor ?? 0;
   const totalEquity = available + reserved;
 
+  const rateMultiplier = EXCHANGE_RATES_FROM_XTS[currency] ?? 1.0;
+  const currSymbol = CURRENCY_SYMBOLS[currency] ?? "XTS";
+  const convertedAvailable = (available / 100) * rateMultiplier;
+  const convertedReserved = (reserved / 100) * rateMultiplier;
+  const convertedTotal = (totalEquity / 100) * rateMultiplier;
+
   return (
     <div className="space-y-6">
-      <Breadcrumbs items={[{ label: "Wallet & Ledger" }]} />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <Breadcrumbs items={[{ label: "Wallet & Ledger" }]} />
+        <div className="flex items-center gap-3">
+          <CurrencySelector currentCurrency={currency} onChangeCurrency={setCurrency} />
+          <button
+            type="button"
+            onClick={() => setDepositModalOpen(true)}
+            className="rounded-lg bg-accent text-ink px-3.5 py-1.5 text-xs font-black hover:brightness-110 transition shadow-md shadow-accent/20"
+          >
+            + Deposit Crypto
+          </button>
+        </div>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-card border border-line bg-coal p-4">
@@ -98,8 +120,13 @@ export default function WalletPage() {
             Available Balance
           </p>
           <p className="tnum mt-1.5 font-mono text-xl font-bold text-bone">
-            {formatMinor(available)}
+            {formatMinor(available)} <span className="text-xs text-accent">XTS</span>
           </p>
+          {currency !== "XTS" && (
+            <p className="font-mono text-xs text-emerald-400 font-semibold mt-0.5">
+              ≈ {currSymbol} {convertedAvailable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+            </p>
+          )}
           <p className="mt-1 text-[11px] text-fog">Ready for new wagers</p>
         </div>
 
@@ -108,8 +135,13 @@ export default function WalletPage() {
             Reserved in Active Bets
           </p>
           <p className="tnum mt-1.5 font-mono text-xl font-bold text-peach">
-            {formatMinor(reserved)}
+            {formatMinor(reserved)} <span className="text-xs text-fog">XTS</span>
           </p>
+          {currency !== "XTS" && (
+            <p className="font-mono text-xs text-peach/90 font-semibold mt-0.5">
+              ≈ {currSymbol} {convertedReserved.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+            </p>
+          )}
           <p className="mt-1 text-[11px] text-fog">Locked until match completion</p>
         </div>
 
@@ -118,11 +150,23 @@ export default function WalletPage() {
             Total Simulated Equity
           </p>
           <p className="tnum mt-1.5 font-mono text-xl font-bold text-bone">
-            {formatMinor(totalEquity)}
+            {formatMinor(totalEquity)} <span className="text-xs text-accent">XTS</span>
           </p>
-          <p className="mt-1 text-[11px] text-fog">Simulated currency (XTS)</p>
+          {currency !== "XTS" && (
+            <p className="font-mono text-xs text-emerald-400 font-semibold mt-0.5">
+              ≈ {currSymbol} {convertedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+            </p>
+          )}
+          <p className="mt-1 text-[11px] text-fog">Simulated currency ({currency})</p>
         </div>
       </div>
+
+      {depositModalOpen && (
+        <CryptoDepositModal
+          userId={user?.id}
+          onClose={() => setDepositModalOpen(false)}
+        />
+      )}
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
