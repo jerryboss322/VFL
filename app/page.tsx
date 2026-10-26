@@ -41,6 +41,7 @@ export default function HomePage() {
   const fetchedOddsIdsRef = useRef<Set<string>>(new Set());
   const prevHadLiveRef = useRef<boolean>(false);
   const prevLiveGoalsSumRef = useRef<number | null>(null);
+  const userPinnedMatchdayRef = useRef<boolean>(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,13 +141,22 @@ export default function HomePage() {
       }
       prevHadLiveRef.current = currentlyHasLive;
 
-      if (isInitial && deduped.length > 0) {
-        const activeFx =
-          deduped.find((x) => x.status === "live") ||
-          deduped.find((x) => x.status === "upcoming") ||
-          deduped[0];
-        if (activeFx) setSelectedMatchday(activeFx.matchday);
-      }
+      const liveFx = deduped.find((x) => x.status === "live");
+      const upcomingFx = deduped.find((x) => x.status === "upcoming");
+      const activeMd = liveFx?.matchday ?? upcomingFx?.matchday ?? deduped[0]?.matchday ?? 1;
+
+      setSelectedMatchday((prevMd) => {
+        if (isInitial || !userPinnedMatchdayRef.current) {
+          return activeMd;
+        }
+        // If the matchday the user was looking at has finished all its matches, auto-advance to the active matchday
+        const viewingFx = deduped.filter((x) => x.matchday === prevMd);
+        if (viewingFx.length > 0 && viewingFx.every((x) => x.status === "completed")) {
+          userPinnedMatchdayRef.current = false;
+          return activeMd;
+        }
+        return prevMd;
+      });
     },
     [selectedLeagueId, refreshAccount],
   );
@@ -156,7 +166,7 @@ export default function HomePage() {
     void loadFixtures(true);
     const pollInterval = setInterval(() => {
       void loadFixtures(false);
-    }, 5000);
+    }, 2500);
     const clockInterval = setInterval(() => {
       setNowMs(Date.now());
     }, 1000);
@@ -367,7 +377,13 @@ export default function HomePage() {
 
   const activeLiveMd = isCurrentlyLive ? liveFixturesAll[0]?.matchday : null;
   const activeLiveClock = isCurrentlyLive
-    ? Math.max(...liveFixturesAll.map((f) => f.clockSeconds ?? 0))
+    ? Math.max(
+        ...liveFixturesAll.map((f) => {
+          const ko = new Date(f.kickoffAt).getTime();
+          const elapsed = Math.max(0, Math.min(480, Math.floor((nowMs - ko) / 1000)));
+          return Math.max(f.clockSeconds ?? 0, elapsed);
+        }),
+      )
     : 0;
   const liveProgressPct = Math.min(100, Math.round((activeLiveClock / 480) * 100));
 
@@ -478,7 +494,10 @@ export default function HomePage() {
             <button
               key={md}
               type="button"
-              onClick={() => setSelectedMatchday(md)}
+              onClick={() => {
+                userPinnedMatchdayRef.current = md !== currentMd;
+                setSelectedMatchday(md);
+              }}
               className={`min-h-[34px] shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-1.5 font-mono text-xs font-semibold transition-all ${
                 isSelected
                   ? "bg-graphite text-accent font-bold border-b-2 border-accent shadow-sm"
@@ -644,7 +663,14 @@ export default function HomePage() {
                     {isLive && (
                       <span className={`tnum mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold ${isHalftime ? "text-gold" : "text-live"}`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${isHalftime ? "bg-gold" : "bg-live live-dot"}`} />
-                        {isHalftime ? "HT 10s" : clockToMinute(fx.clockSeconds)}
+                        {isHalftime
+                          ? "HT 10s"
+                          : clockToMinute(
+                              Math.max(
+                                fx.clockSeconds ?? 0,
+                                Math.min(480, Math.floor((nowMs - fxKoMs) / 1000)),
+                              ),
+                            )}
                       </span>
                     )}
                     {isUpcoming && (

@@ -155,9 +155,13 @@ export default function MatchDetailPage() {
   const effectiveClock = useMemo(() => {
     if (!fixture) return 0;
     if (isCompleted) return replaySecond;
-    if (isLive) return fixture.clockSeconds ?? 0;
+    if (isLive) {
+      const ko = new Date(fixture.kickoffAt).getTime();
+      const elapsed = Math.max(0, Math.min(480, Math.floor((nowMs - ko) / 1000)));
+      return Math.max(fixture.clockSeconds ?? 0, elapsed);
+    }
     return 0;
-  }, [fixture, isCompleted, isLive, replaySecond]);
+  }, [fixture, isCompleted, isLive, replaySecond, nowMs]);
 
   const visibleEvents = useMemo(() => {
     if (!fixture || isUpcoming) return [];
