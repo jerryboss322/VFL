@@ -10,6 +10,28 @@ export interface Selection {
   decimal: number;
 }
 
+export const LOCK_ODDS_THRESHOLD = 1.07;
+
+/** Determine if an odd is locked due to value threshold or explicit suspension. */
+export function isOddLocked(decimal: number, suspended?: boolean): boolean {
+  return Boolean(suspended || decimal < LOCK_ODDS_THRESHOLD);
+}
+
+/** Validates slip selections before placement, strictly enforcing the 1.07 minimum odds threshold. */
+export function validateSlipSelections(slip: Selection[]): { valid: boolean; error: string | null } {
+  if (slip.length === 0) {
+    return { valid: false, error: "Slip is empty." };
+  }
+  const lockedLeg = slip.find((s) => isOddLocked(s.decimal));
+  if (lockedLeg) {
+    return {
+      valid: false,
+      error: `Selection "${lockedLeg.label}" has odds ${lockedLeg.decimal.toFixed(2)} which is below the 1.07 floor and locked.`,
+    };
+  }
+  return { valid: true, error: null };
+}
+
 /** One selection per match: choosing another outcome for the same fixture replaces it; choosing the same one removes it. */
 export function toggleSelection(slip: Selection[], next: Selection): Selection[] {
   const existing = slip.find((s) => s.fixtureId === next.fixtureId);

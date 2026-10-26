@@ -798,7 +798,15 @@ export default function HomePage() {
                           "ht_ft_and_ou_2_5",
                         ].includes(displayedMarket.key);
                         const is1HFinished = (fx.clockSeconds ?? 0) >= 240 || isCompleted;
-                        const disabled = !isBettingOpen || opt.suspended || (is1HMarket && is1HFinished);
+                        const isBTTSMarket = displayedMarket.key === "both_teams_to_score" || displayedMarket.key === "btts";
+                        const isBTTSOccurred = isLive && (fx.homeGoals ?? 0) >= 1 && (fx.awayGoals ?? 0) >= 1;
+                        const isOddBelowFloor = opt.decimal < 1.07;
+                        const disabled =
+                          !isBettingOpen ||
+                          opt.suspended ||
+                          isOddBelowFloor ||
+                          (is1HMarket && is1HFinished) ||
+                          (isBTTSMarket && isBTTSOccurred);
                         const movement = oddsMovementMap[opt.oddsId];
                         let tag = opt.label;
                         if (opt.outcome === "home" || opt.outcome === "ht_home" || opt.outcome === "2h_home") tag = "1";
@@ -850,8 +858,11 @@ export default function HomePage() {
                               {tag}
                             </span>
                             <span className="flex items-center gap-0.5">
-                              {is1HMarket && is1HFinished ? (
-                                <span className="font-mono text-[9px] font-bold text-loss">LOCKED</span>
+                              {disabled ? (
+                                <span className="font-mono text-[9px] font-bold text-loss flex items-center gap-0.5">
+                                  <span>{opt.decimal.toFixed(2)}</span>
+                                  <span>🔒</span>
+                                </span>
                               ) : (
                                 <span className={`tnum font-bold ${selected ? "text-ink font-black" : "b365-odds-value"}`}>
                                   {opt.decimal.toFixed(2)}

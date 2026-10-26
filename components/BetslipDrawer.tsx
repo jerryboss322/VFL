@@ -41,11 +41,17 @@ export function BetslipDrawer() {
   const estReturnMinor = displayReturnMinor(stakeMinor, slip);
   const estProfitMinor = Math.max(0, estReturnMinor - stakeMinor);
   const hasInsufficientFunds = Boolean(user && wallet && wallet.availableMinor < stakeMinor);
+  const hasLockedSelection = slip.some((s) => s.decimal < 1.07);
 
   async function handlePlaceBet(e: React.FormEvent) {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    if (hasLockedSelection) {
+      setErrorMsg("Selections with odds below 1.07 are locked and cannot be placed.");
+      return;
+    }
 
     if (!user) {
       setAuthModalOpen(true);
@@ -261,7 +267,14 @@ export function BetslipDrawer() {
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
                         <div className="flex items-center gap-1.5">
-                          <span className="tnum rounded border border-accent/40 bg-brand-dark px-2 py-0.5 font-mono text-xs font-bold text-accent">
+                          {s.decimal < 1.07 && (
+                            <span className="rounded bg-loss/20 px-1.5 py-0.5 font-mono text-[9px] font-bold text-loss border border-loss/40">
+                              🔒 &lt; 1.07
+                            </span>
+                          )}
+                          <span className={`tnum rounded border px-2 py-0.5 font-mono text-xs font-bold ${
+                            s.decimal < 1.07 ? "border-loss/40 bg-loss/10 text-loss line-through" : "border-accent/40 bg-brand-dark text-accent"
+                          }`}>
                             {s.decimal.toFixed(2)}
                           </span>
                           <button
@@ -397,6 +410,15 @@ export function BetslipDrawer() {
                 </div>
               )}
 
+              {hasLockedSelection && (
+                <div
+                  role="alert"
+                  className="rounded border border-loss/40 bg-loss/10 p-2 font-mono text-xs text-loss"
+                >
+                  🔒 One or more selections have odds below the 1.07 minimum floor and are locked. Please remove them to proceed.
+                </div>
+              )}
+
               {hasInsufficientFunds && (
                 <div
                   role="alert"
@@ -417,17 +439,19 @@ export function BetslipDrawer() {
 
               <button
                 type="submit"
-                disabled={placing || hasInsufficientFunds}
+                disabled={placing || hasInsufficientFunds || hasLockedSelection}
                 className="flex min-h-[42px] w-full items-center justify-center rounded bg-accent px-4 py-2 font-mono text-xs font-black uppercase tracking-wider text-ink transition-all hover:brightness-110 shadow-md shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>
                   {placing
                     ? "Locking Wager..."
-                    : hasInsufficientFunds
-                      ? "Insufficient Funds"
-                      : user
-                        ? `Place Bet • ${formatMinor(stakeMinor)}`
-                        : "Join / Sign In to Place Bet"}
+                    : hasLockedSelection
+                      ? "Odds Below 1.07 Locked"
+                      : hasInsufficientFunds
+                        ? "Insufficient Funds"
+                        : user
+                          ? `Place Bet • ${formatMinor(stakeMinor)}`
+                          : "Join / Sign In to Place Bet"}
                 </span>
               </button>
 

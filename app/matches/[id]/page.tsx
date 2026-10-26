@@ -681,7 +681,9 @@ export default function MatchDetailPage() {
                 "ht_ft_and_ou_2_5",
               ].includes(market.key);
               const is1HFinished = (fixture.clockSeconds ?? 0) >= 240 || isCompleted;
-              const isMarketLocked = (is1HMarket && is1HFinished) || market.suspended;
+              const isBTTSMarket = market.key === "both_teams_to_score" || market.key === "btts";
+              const isBTTSOccurred = isLive && (fixture.homeGoals ?? 0) >= 1 && (fixture.awayGoals ?? 0) >= 1;
+              const isMarketLocked = (is1HMarket && is1HFinished) || (isBTTSMarket && isBTTSOccurred) || market.suspended;
 
               return (
                 <div
@@ -698,6 +700,11 @@ export default function MatchDetailPage() {
                       {is1HMarket && is1HFinished && (
                         <span className="rounded bg-loss/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-loss border border-loss/40">
                           🔒 1H Closed
+                        </span>
+                      )}
+                      {isBTTSMarket && isBTTSOccurred && (
+                        <span className="rounded bg-loss/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-loss border border-loss/40">
+                          🔒 BTTS Occurred
                         </span>
                       )}
                       {market.category && (
@@ -721,7 +728,13 @@ export default function MatchDetailPage() {
                         (s) => s.fixtureId === fixture.id && s.oddsId === opt.oddsId,
                       );
                       const isBettingOpen = isUpcoming || isLive;
-                      const disabled = !isBettingOpen || opt.suspended || (is1HMarket && is1HFinished);
+                      const isOddBelowFloor = opt.decimal < 1.07;
+                      const disabled =
+                        !isBettingOpen ||
+                        opt.suspended ||
+                        isOddBelowFloor ||
+                        (is1HMarket && is1HFinished) ||
+                        (isBTTSMarket && isBTTSOccurred);
                       const movement = oddsMovementMap[opt.oddsId];
                       return (
                         <button
@@ -756,9 +769,10 @@ export default function MatchDetailPage() {
                             {opt.label}
                           </span>
                           <span className="tnum shrink-0 font-mono font-bold flex items-center gap-1">
-                            {is1HMarket && is1HFinished ? (
-                              <span className="rounded bg-loss/15 px-1.5 py-0.5 font-mono text-[9px] font-bold text-loss">
-                                🔒 LOCKED
+                            {disabled ? (
+                              <span className="rounded bg-loss/15 px-1.5 py-0.5 font-mono text-[9px] font-bold text-loss flex items-center gap-1">
+                                <span>{opt.decimal.toFixed(2)}</span>
+                                <span>🔒</span>
                               </span>
                             ) : (
                               <>

@@ -82,6 +82,9 @@ export function AsianHandicapTable({ fixture }: AsianHandicapTableProps) {
           const formattedLine = formatAsianHandicapLine(opt.handicap);
           const inverseLine = formatAsianHandicapLine(-opt.handicap);
 
+          const homeLocked = opt.homeOdds < 1.07;
+          const awayLocked = opt.awayOdds < 1.07;
+
           return (
             <div
               key={opt.key}
@@ -91,15 +94,21 @@ export function AsianHandicapTable({ fixture }: AsianHandicapTableProps) {
               <div className="col-span-5">
                 <button
                   type="button"
+                  disabled={homeLocked}
                   onClick={() => handleSelect(opt, "home", opt.handicap, opt.homeOdds)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded text-xs font-mono font-bold transition-all border ${
                     homeSelected
                       ? "bg-amber-500/20 border-amber-500 text-amber-300 shadow-sm"
-                      : "bg-neutral-900 border-neutral-700/60 text-neutral-200 hover:border-neutral-500"
+                      : homeLocked
+                        ? "bg-neutral-950/80 border-neutral-800 text-neutral-500 cursor-not-allowed opacity-60"
+                        : "bg-neutral-900 border-neutral-700/60 text-neutral-200 hover:border-neutral-500"
                   }`}
                 >
                   <span className="truncate">{homeName} ({formattedLine})</span>
-                  <span className="text-amber-400 ml-2">{opt.homeOdds.toFixed(2)}</span>
+                  <span className="text-amber-400 ml-2 flex items-center gap-1">
+                    {opt.homeOdds.toFixed(2)}
+                    {homeLocked && <span title="Locked below 1.07">🔒</span>}
+                  </span>
                 </button>
               </div>
 
@@ -119,15 +128,21 @@ export function AsianHandicapTable({ fixture }: AsianHandicapTableProps) {
               <div className="col-span-5">
                 <button
                   type="button"
+                  disabled={awayLocked}
                   onClick={() => handleSelect(opt, "away", opt.handicap, opt.awayOdds)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded text-xs font-mono font-bold transition-all border ${
                     awaySelected
                       ? "bg-amber-500/20 border-amber-500 text-amber-300 shadow-sm"
-                      : "bg-neutral-900 border-neutral-700/60 text-neutral-200 hover:border-neutral-500"
+                      : awayLocked
+                        ? "bg-neutral-950/80 border-neutral-800 text-neutral-500 cursor-not-allowed opacity-60"
+                        : "bg-neutral-900 border-neutral-700/60 text-neutral-200 hover:border-neutral-500"
                   }`}
                 >
                   <span className="truncate">{awayName} ({inverseLine})</span>
-                  <span className="text-amber-400 ml-2">{opt.awayOdds.toFixed(2)}</span>
+                  <span className="text-amber-400 ml-2 flex items-center gap-1">
+                    {opt.awayOdds.toFixed(2)}
+                    {awayLocked && <span title="Locked below 1.07">🔒</span>}
+                  </span>
                 </button>
               </div>
             </div>
