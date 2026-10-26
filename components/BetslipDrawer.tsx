@@ -4,6 +4,7 @@ import Link from "next/link";
 import React, { useState } from "react";
 import { useApp } from "@/components/AppContext";
 import { CashoutSlider } from "@/components/CashoutSlider";
+import { SystemBetCalculator } from "@/components/SystemBetCalculator";
 import { api } from "@/lib/api/client";
 import { combinedOdds, displayReturnMinor, formatMinor, stakeError } from "@/lib/betslip";
 import { playBetPlacedSound, playCashOutSound } from "@/lib/sound";
@@ -282,6 +283,15 @@ export function BetslipDrawer() {
                   </li>
                 ))}
               </ul>
+
+              {slip.length >= 3 && (
+                <div className="pt-1">
+                  <SystemBetCalculator
+                    selections={slip}
+                    unitStakeMinor={stakeMinor}
+                  />
+                </div>
+              )}
 
               <div className="space-y-2 border-t border-line pt-2.5">
                 <div className="flex items-center justify-between text-xs">
