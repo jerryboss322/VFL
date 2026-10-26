@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { FantasySquadBuilder, type FantasyPlayer } from "@/components/FantasySquadBuilder";
+import { FantasyPerformanceTracker, type LivePlayerPerformance } from "@/components/FantasyPerformanceTracker";
 import { formatMinor } from "@/lib/betslip";
 
 interface FantasyStanding {
@@ -26,7 +27,7 @@ interface FantasyLeagueInfo {
 }
 
 export default function FantasyFootballPage() {
-  const [activeTab, setActiveTab] = useState<"builder" | "standings" | "market" | "rules">("builder");
+  const [activeTab, setActiveTab] = useState<"builder" | "live" | "standings" | "market" | "rules">("builder");
   const [players, setPlayers] = useState<FantasyPlayer[]>([]);
   const [leagues, setLeagues] = useState<FantasyLeagueInfo[]>([]);
   const [selectedLeagueId, setSelectedLeagueId] = useState<string>("");
@@ -167,6 +168,7 @@ export default function FantasyFootballPage() {
         <div className="flex border-b border-neutral-800 gap-2">
           {[
             { id: "builder", label: "Pitch & Squad Builder" },
+            { id: "live", label: "Live Matchday Telemetry" },
             { id: "standings", label: "Manager Standings" },
             { id: "market", label: "Transfer Market" },
             { id: "rules", label: "Scoring Matrix" },
@@ -198,6 +200,60 @@ export default function FantasyFootballPage() {
               />
             )}
           </div>
+        )}
+
+        {/* TAB: LIVE TELEMETRY */}
+        {activeTab === "live" && (
+          <FantasyPerformanceTracker
+            gameweek={14}
+            rosterTeamName="Apex Tacticians"
+            overallRank={18}
+            gameweekPoints={64}
+            livePlayers={players.slice(0, 11).map((p, idx) => ({
+              playerId: p.playerId,
+              name: p.name,
+              clubShort: p.clubShort || "VFL",
+              position: p.position,
+              minutesPlayed: 90,
+              goals: idx === 9 ? 2 : idx === 6 ? 1 : 0,
+              assists: idx === 7 ? 2 : 0,
+              cleanSheet: idx < 5,
+              yellowCards: idx === 4 ? 1 : 0,
+              redCards: 0,
+              bonusPoints: idx === 9 ? 3 : idx === 7 ? 2 : 0,
+              totalPoints: idx === 9 ? 13 : idx === 7 ? 9 : idx < 5 ? 6 : 2,
+              isCaptain: idx === 9,
+              isVice: idx === 7,
+            }))}
+            benchPlayers={players.slice(11, 15).map((p) => ({
+              playerId: p.playerId,
+              name: p.name,
+              clubShort: p.clubShort || "VFL",
+              position: p.position,
+              minutesPlayed: 0,
+              goals: 0,
+              assists: 0,
+              cleanSheet: false,
+              yellowCards: 0,
+              redCards: 0,
+              bonusPoints: 0,
+              totalPoints: 0,
+            }))}
+            dreamTeam={players.slice(0, 6).map((p, idx) => ({
+              playerId: p.playerId,
+              name: p.name,
+              clubShort: p.clubShort || "VFL",
+              position: p.position,
+              minutesPlayed: 90,
+              goals: 1,
+              assists: 1,
+              cleanSheet: true,
+              yellowCards: 0,
+              redCards: 0,
+              bonusPoints: 3,
+              totalPoints: 12 + idx,
+            }))}
+          />
         )}
 
         {/* TAB 2: STANDINGS */}
