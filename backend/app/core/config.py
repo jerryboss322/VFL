@@ -4,53 +4,34 @@ from pydantic_settings import BaseSettings
 
 
 def _resolve_database_url() -> str:
-    # 1. Supabase-specific env variables provided by Vercel Supabase integration
+    # 1. Direct explicit DATABASE_URL
+    if os.environ.get("DATABASE_URL"):
+        return os.environ["DATABASE_URL"]
+
+    # 2. Vercel Postgres / Neon / Supabase provider env variables
     for k in (
+        "POSTGRES_URL_NON_POOLING",
+        "POSTGRES_URL",
+        "POSTGRES_PRISMA_URL",
         "SUPABASE_POSTGRES_URL",
         "SUPABASE_DATABASE_URL",
         "SUPABASE_DB_URL",
     ):
         val = os.environ.get(k)
-        if val and "neon" not in val:
+        if val:
             return val
 
-    # 2. Check if any postgres env var points explicitly to Supabase (prefer port 5432 non-pooling/session pooler)
-    for k in (
-        "POSTGRES_URL_NON_POOLING",
-        "POSTGRES_URL",
-        "POSTGRES_PRISMA_URL",
-        "DATABASE_URL",
-    ):
-        val = os.environ.get(k)
-        if val and ("supabase" in val or "pooler.supabase.com" in val):
-            return val
-
-    # 3. Construct from POSTGRES_HOST / POSTGRES_USER / POSTGRES_PASSWORD if host is Supabase
+    # 3. Construct from POSTGRES_HOST / POSTGRES_USER / POSTGRES_PASSWORD if present
     pg_host = os.environ.get("POSTGRES_HOST")
     pg_user = os.environ.get("POSTGRES_USER")
     pg_pass = os.environ.get("POSTGRES_PASSWORD")
-    pg_db = os.environ.get("POSTGRES_DATABASE") or "postgres"
-    if pg_host and pg_user and pg_pass and "supabase" in pg_host:
+    pg_db = os.environ.get("POSTGRES_DATABASE") or "neondb"
+    if pg_host and pg_user and pg_pass:
         port = "6543" if "pooler" in pg_host else "5432"
         return f"postgresql://{pg_user}:{pg_pass}@{pg_host}:{port}/{pg_db}?sslmode=require"
 
-    # 4. Filter out quota-exceeded Neon URLs - if any candidate does NOT have 'neon', prefer it!
-    for k in (
-        "POSTGRES_URL",
-        "POSTGRES_URL_NON_POOLING",
-        "POSTGRES_PRISMA_URL",
-        "DATABASE_URL",
-    ):
-        val = os.environ.get(k)
-        if val and "neon" not in val:
-            return val
-
-    # 5. If POSTGRES_HOST is not Neon, build connection string
-    if pg_host and pg_user and pg_pass and "neon" not in pg_host:
-        return f"postgresql://{pg_user}:{pg_pass}@{pg_host}:5432/{pg_db}?sslmode=require"
-
-    # 6. Fallback: return DATABASE_URL or POSTGRES_URL or localhost
-    return os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or "postgresql+asyncpg://postgres@localhost:5433/virtual_football"
+    # 4. Fallback: local dev
+    return "postgresql+asyncpg://postgres@localhost:5433/virtual_football"
 
 
 class Settings(BaseSettings):
