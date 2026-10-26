@@ -151,15 +151,29 @@ def generate_asian_handicap_market(
     home_defense: float,
     away_attack: float,
     away_defense: float,
+    current_home_goals: int = 0,
+    current_away_goals: int = 0,
+    is_live: bool = False,
 ) -> dict:
-    """Derive competitive Asian Handicap lines and prices based on attacking ratings."""
+    """Derive competitive Asian Handicap lines and prices based on attacking ratings and in-play score."""
     # Compute relative dominance differential
     home_power = home_attack / max(0.5, away_defense)
     away_power = away_attack / max(0.5, home_defense)
     diff = home_power - away_power
 
+    # When live, adjust expected spread based on in-play goal difference
+    if is_live and (current_home_goals > 0 or current_away_goals > 0):
+        inplay_goal_diff = current_home_goals - current_away_goals
+        diff += inplay_goal_diff * 0.55
+
     # Determine central spread line
-    if diff > 0.40:
+    if diff > 1.20:
+        primary_line = -3.0
+    elif diff > 0.85:
+        primary_line = -2.5
+    elif diff > 0.60:
+        primary_line = -2.0
+    elif diff > 0.40:
         primary_line = -1.5
     elif diff > 0.25:
         primary_line = -1.0
@@ -167,6 +181,12 @@ def generate_asian_handicap_market(
         primary_line = -0.5
     elif diff > 0.04:
         primary_line = -0.25
+    elif diff < -1.20:
+        primary_line = 3.0
+    elif diff < -0.85:
+        primary_line = 2.5
+    elif diff < -0.60:
+        primary_line = 2.0
     elif diff < -0.40:
         primary_line = 1.5
     elif diff < -0.25:
@@ -196,8 +216,11 @@ def generate_asian_handicap_market(
         base_h = 1.92 - skew
         base_a = 1.92 + skew
 
-        h_odds = max(1.40, min(3.20, round(base_h, 2)))
-        a_odds = max(1.40, min(3.20, round(base_a, 2)))
+        h_odds = max(1.02, min(15.00, round(base_h, 2)))
+        a_odds = max(1.02, min(15.00, round(base_a, 2)))
+
+        h_locked = h_odds < 1.07
+        a_locked = a_odds < 1.07
 
         options.append({
             "key": f"ah_home_{line}",
@@ -205,6 +228,8 @@ def generate_asian_handicap_market(
             "odds": h_odds,
             "handicap": line,
             "side": "home",
+            "suspended": h_locked,
+            "locked": h_locked,
         })
         options.append({
             "key": f"ah_away_{-line}",
@@ -212,6 +237,8 @@ def generate_asian_handicap_market(
             "odds": a_odds,
             "handicap": -line,
             "side": "away",
+            "suspended": a_locked,
+            "locked": a_locked,
         })
 
     return {

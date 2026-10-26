@@ -47,7 +47,8 @@ from uuid import UUID
 BASELINE_GOALS = 1.25
 HOME_ADVANTAGE = 1.10
 OVERROUND = 1.045
-MIN_ODDS = 1.06
+MIN_ODDS = 1.01
+LOCK_ODDS_THRESHOLD = 1.07
 MAX_ODDS = 65.00
 HALF_ONE_SHARE = 0.45
 HALF_TWO_SHARE = 0.55
@@ -360,9 +361,22 @@ def generate_fixture_markets(
     p_first_home = p_any_goal * home_arrival_share
     p_first_away = p_any_goal * away_arrival_share
 
-    def _opt(odds_id: str, outcome: str, label: str, prob: float, overround: float = OVERROUND) -> dict[str, Any]:
-        opt_suspended = suspended or (prob <= 0.001 and is_live)
+    def _opt(
+        odds_id: str,
+        outcome: str,
+        label: str,
+        prob: float,
+        overround: float = OVERROUND,
+        force_suspended: bool = False,
+    ) -> dict[str, Any]:
         dec = _prob_to_decimal_odds(prob, overround)
+        # Any odd lower than 1.07 is strictly locked (suspended), as are live near-zero events
+        opt_suspended = (
+            suspended
+            or force_suspended
+            or (dec < LOCK_ODDS_THRESHOLD)
+            or (prob <= 0.001 and is_live)
+        )
         return {
             "odds_id": odds_id,
             "oddsId": odds_id,
@@ -371,11 +385,21 @@ def generate_fixture_markets(
             "label": label,
             "decimal": dec,
             "suspended": opt_suspended,
+            "locked": opt_suspended,
         }
 
-    # Helper for 3-way handicap (line applied to home: e.g. line = -1 means Home -1, Tie -1, Away +1)
+    # Dynamic 3-way handicap lines:
+    # Lines dynamically shift relative to in-play goal difference so that odds increase/reduce realistically
+    goal_diff = current_home_goals - current_away_goals
+    base_lines = [-3, -2, -1, 1, 2, 3]
+    if is_live and goal_diff != 0:
+        inplay_shifts = [-goal_diff - 2, -goal_diff - 1, -goal_diff, -goal_diff + 1, -goal_diff + 2]
+        all_lines = sorted(list(set(base_lines + [l for l in inplay_shifts if -6 <= l <= 6 and l != 0])))
+    else:
+        all_lines = sorted(base_lines)
+
     handicap_options: list[dict[str, Any]] = []
-    for line in (-1, 1, -2, 2, -3, 3):
+    for line in all_lines:
         p_hcap_home = sum(p for (h, a), p in ft_grid.items() if (h + line) > a)
         p_hcap_draw = sum(p for (h, a), p in ft_grid.items() if (h + line) == a)
         p_hcap_away = sum(p for (h, a), p in ft_grid.items() if (h + line) < a)
@@ -430,7 +454,8 @@ def generate_fixture_markets(
 
     p_over_2_5 = sum(p for (h, a), p in ft_grid.items() if (h + a) > 2)
     p_under_2_5 = max(0.0001, 1.0 - p_over_2_5)
-    if is_live and current_home_goals >= 1 and current_away_goals >= 1:
+    btts_occurred = bool(is_live and current_home_goals >= 1 and current_away_goals >= 1)
+    if btts_occurred:
         p_btts_yes = 0.999
         p_btts_no = 0.0001
     else:
@@ -658,9 +683,11 @@ def generate_fixture_markets(
             "key": "both_teams_to_score",
             "category": "goals",
             "label": "Both Teams to Score (BTTS)",
+            "suspended": suspended or btts_occurred,
+            "locked": suspended or btts_occurred,
             "options": [
-                _opt(f"{fid}:btts:yes", "btts_yes", "Yes (BTTS)", p_btts_yes),
-                _opt(f"{fid}:btts:no", "btts_no", "No (Clean Sheet)", p_btts_no),
+                _opt(f"{fid}:btts:yes", "btts_yes", "Yes (BTTS)", p_btts_yes, force_suspended=btts_occurred),
+                _opt(f"{fid}:btts:no", "btts_no", "No (Clean Sheet)", p_btts_no, force_suspended=btts_occurred),
             ],
         },
         {
@@ -849,6 +876,23 @@ def generate_fixture_markets(
                 m["locked"] = True
                 for opt in m.get("options", []):
                     opt["suspended"] = True
+                    opt["locked"] = True
+
+    if btts_occurred or suspended:
+        for m in markets:
+            if m.get("key") in ("both_teams_to_score", "btts"):
+                m["suspended"] = True
+                m["locked"] = True
+                for opt in m.get("options", []):
+                    opt["suspended"] = True
+                    opt["locked"] = True
+
+    # Universal enforcement: Any odd lower than 1.07 must be locked
+    for m in markets:
+        for opt in m.get("options", []):
+            if opt.get("decimal", 0) < LOCK_ODDS_THRESHOLD:
+                opt["suspended"] = True
+                opt["locked"] = True
 
     return markets
 

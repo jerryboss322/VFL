@@ -173,10 +173,13 @@ async def place_bet(
             raise BettingError("ODDS_CHANGED", "The requested odds are no longer available", 409)
 
         option = sel["option"]
-        if option.get("suspended", False):
-            raise BettingError("MARKET_SUSPENDED", "This selection is suspended", 409)
+        leg_odds = Decimal(str(option.get("decimal", 1.0)))
+        if option.get("suspended", False) or option.get("locked", False) or leg_odds < Decimal("1.07"):
+            raise BettingError("MARKET_SUSPENDED", "This selection is locked (odds below 1.07 or suspended market)", 409)
 
         mkey = sel.get("market")
+        if mkey in ("both_teams_to_score", "btts") and (sel_fixture.home_goals or 0) >= 1 and (sel_fixture.away_goals or 0) >= 1:
+            raise BettingError("MARKET_SUSPENDED", "Both teams have already scored; BTTS market is locked.", 409)
         first_half_markets = {
             "half_time_result",
             "first_half_goals_ou",
