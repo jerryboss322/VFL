@@ -13,6 +13,7 @@ import { TacticalHeatmap } from "@/components/TacticalHeatmap";
 import { PlayerRosterRadar } from "@/components/PlayerRosterRadar";
 import { AsianHandicapTable } from "@/components/AsianHandicapTable";
 import { H2HComparison } from "@/components/H2HComparison";
+import { AudioCommentaryPlayer } from "@/components/AudioCommentaryPlayer";
 import { api } from "@/lib/api/client";
 import { playGoalChime, playWhistleSound } from "@/lib/sound";
 import type {
@@ -597,6 +598,9 @@ export default function MatchDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Dynamic AI Audio Commentary Console */}
+      <AudioCommentaryPlayer homeName={fixture.home.name} awayName={fixture.away.name} />
 
       {/* 27 Betting Markets Suite with Category Filter */}
       <section className="space-y-4">
