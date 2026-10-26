@@ -261,6 +261,25 @@ Base(OVR) = 10^7 * (OVR / 60.0)^4.5 minor units
 FFPRatio = (AnnualWages + AddedWage * 52) / AnnualRevenue <= 0.70 (70% ceiling)
 Registrations breaching 70% ratio are automatically vetoed by the system.`,
   },
+  {
+    id: "rfc-015",
+    number: "015",
+    title: "Matchday Weather Physics, Turf Resistance & Aerodynamic Ball Dynamics",
+    status: "Standard",
+    category: "Simulation Physics & Turf",
+    authors: "Simulation Physics & Environmental Modeling Working Group",
+    abstract:
+      "Turf moisture friction coefficient equations (mu in [0.35, 0.95]), aerodynamic wind drag vector calculus, and thermal stamina fatigue multipliers.",
+    contentMarkdown: `## 1. Turf Skim Deceleration
+dv/dt = -mu(M_turf) * g * v_hat
+Rain slick turf (mu = 0.42) produces 30% slower passing velocity decay.
+
+## 2. Aerodynamic Wind Drag
+F_drag = 0.5 * C_d * rho(T) * A * |v_rel| * v_rel
+
+## 3. Thermal Fatigue Multiplier
+Psi(T) = 1.00 + (T - 22) * 0.018 for T > 22C (Heatwave dehydration accelerates stamina loss by +21.6%).`,
+  },
 ];
 
 export default function DocsPage() {
