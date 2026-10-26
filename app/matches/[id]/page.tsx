@@ -14,6 +14,7 @@ import { PlayerRosterRadar } from "@/components/PlayerRosterRadar";
 import { AsianHandicapTable } from "@/components/AsianHandicapTable";
 import { H2HComparison } from "@/components/H2HComparison";
 import { AudioCommentaryPlayer } from "@/components/AudioCommentaryPlayer";
+import { PitchWeatherGauge } from "@/components/PitchWeatherGauge";
 import { api } from "@/lib/api/client";
 import { playGoalChime, playWhistleSound } from "@/lib/sound";
 import type {
@@ -601,6 +602,9 @@ export default function MatchDetailPage() {
 
       {/* Dynamic AI Audio Commentary Console */}
       <AudioCommentaryPlayer homeName={fixture.home.name} awayName={fixture.away.name} />
+
+      {/* Atmospheric Weather & Turf Physical Dynamics */}
+      <PitchWeatherGauge />
 
       {/* 27 Betting Markets Suite with Category Filter */}
       <section className="space-y-4">
