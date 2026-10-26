@@ -16,6 +16,7 @@ import { H2HComparison } from "@/components/H2HComparison";
 import { AudioCommentaryPlayer } from "@/components/AudioCommentaryPlayer";
 import { PitchWeatherGauge } from "@/components/PitchWeatherGauge";
 import { StadiumSoundboard } from "@/components/StadiumSoundboard";
+import { MatchTacticalDossier } from "@/components/MatchTacticalDossier";
 import { api } from "@/lib/api/client";
 import { playGoalChime, playWhistleSound } from "@/lib/sound";
 import type {
@@ -609,6 +610,12 @@ export default function MatchDetailPage() {
 
       {/* Spatial Stadium Audio & Crowd Acoustics Soundboard */}
       <StadiumSoundboard />
+
+      {/* AI Tactical Intelligence Dossier & Expected Goals */}
+      <MatchTacticalDossier
+        homeName={fixture.home.name}
+        awayName={fixture.away.name}
+      />
 
       {/* 27 Betting Markets Suite with Category Filter */}
       <section className="space-y-4">
