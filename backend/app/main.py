@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.api import admin, auth, bets, fixtures, league, matches, odds, platform, settlement, wallet
+from app.api import admin, auth, bets, fantasy, fixtures, league, matches, odds, platform, settlement, wallet
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
@@ -180,6 +180,7 @@ for _prefix in ("", "/api"):
     _router.include_router(wallet.router)
     _router.include_router(admin.router)
     _router.include_router(platform.router)
+    _router.include_router(fantasy.router)
 
     @_router.get("/me", response_model=UserOut, tags=["auth"])
     async def root_me(current_user: User = Depends(get_current_user)):
