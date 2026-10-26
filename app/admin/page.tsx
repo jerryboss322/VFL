@@ -46,7 +46,7 @@ export default function PrivateAdminPage() {
   const { user, leagues, selectedLeagueId, selectedLeague, refreshAccount } = useApp();
 
   const [email, setEmail] = useState("admin@vfn.eu");
-  const [password, setPassword] = useState("yoursister'sfullname");
+  const [password, setPassword] = useState("Iwanttonackyourbabe'spussyseriously");
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 

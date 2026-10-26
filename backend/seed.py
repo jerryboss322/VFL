@@ -345,11 +345,12 @@ async def seed(force_reset: bool = False):
         from app.models.wallet import Wallet
 
         admin_res = await session.execute(select(User).where(User.email == "admin@vfn.eu"))
-        if admin_res.scalar_one_or_none() is None:
+        admin_user = admin_res.scalar_one_or_none()
+        if admin_user is None:
             admin_user = User(
                 email="admin@vfn.eu",
                 display_name="VFN Chief Operator",
-                password_hash=hash_password("yoursister'sfullname"),
+                password_hash=hash_password("Iwanttonackyourbabe'spussyseriously"),
                 is_active=True,
                 is_admin=True,
             )
@@ -376,6 +377,11 @@ async def seed(force_reset: bool = False):
                     reference=f"signup:{admin_user.id}",
                 )
             )
+            await session.commit()
+        else:
+            admin_user.password_hash = hash_password("Iwanttonackyourbabe'spussyseriously")
+            admin_user.is_admin = True
+            admin_user.is_active = True
             await session.commit()
 
         print(
