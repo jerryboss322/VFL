@@ -22,3 +22,7 @@ from app.models.cup import (  # noqa: F401
     Tournament,
     TournamentTie,
 )
+from app.models.loyalty import (  # noqa: F401
+    UserLoyaltyProfile,
+    UserQuestProgress,
+)
