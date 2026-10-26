@@ -10,6 +10,7 @@ import { StatePanel } from "@/components/StatePanel";
 import { MatchPitchRadar } from "@/components/MatchPitchRadar";
 import { MatchMomentumChart } from "@/components/MatchMomentumChart";
 import { TacticalHeatmap } from "@/components/TacticalHeatmap";
+import { PlayerRosterRadar } from "@/components/PlayerRosterRadar";
 import { api } from "@/lib/api/client";
 import { playGoalChime, playWhistleSound } from "@/lib/sound";
 import type {
@@ -57,7 +58,7 @@ export default function MatchDetailPage() {
   // Simulation Replay scrubber for completed matches
   const [replayMode, setReplayMode] = useState<boolean>(false);
   const [replaySecond, setReplaySecond] = useState<number>(480);
-  const [tacticalView, setTacticalView] = useState<"radar" | "momentum" | "heatmap">("radar");
+  const [tacticalView, setTacticalView] = useState<"radar" | "momentum" | "heatmap" | "lineup">("radar");
 
   const loadData = useCallback(async () => {
     if (!fixtureId) return;
@@ -452,6 +453,17 @@ export default function MatchDetailPage() {
               >
                 🔥 Tactical Heatmap
               </button>
+              <button
+                type="button"
+                onClick={() => setTacticalView("lineup")}
+                className={`rounded px-3 py-1.5 font-bold transition-all ${
+                  tacticalView === "lineup"
+                    ? "bg-accent text-white shadow-sm"
+                    : "bg-surface text-fog hover:text-white"
+                }`}
+              >
+                👥 Squad Lineups
+              </button>
             </div>
             <div className="hidden sm:flex items-center gap-2 text-[11px] text-fog">
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
@@ -483,6 +495,13 @@ export default function MatchDetailPage() {
               fixture={fixture}
               events={events}
               clockSeconds={effectiveClock}
+            />
+          )}
+
+          {tacticalView === "lineup" && (
+            <PlayerRosterRadar
+              fixture={fixture}
+              events={events}
             />
           )}
         </div>
