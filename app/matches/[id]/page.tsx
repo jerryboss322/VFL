@@ -14,6 +14,7 @@ import { PlayerRosterRadar } from "@/components/PlayerRosterRadar";
 import { AsianHandicapTable } from "@/components/AsianHandicapTable";
 import { H2HComparison } from "@/components/H2HComparison";
 import { AudioCommentaryPlayer } from "@/components/AudioCommentaryPlayer";
+import { RadioCommentaryPlayer } from "@/components/RadioCommentaryPlayer";
 import { PitchWeatherGauge } from "@/components/PitchWeatherGauge";
 import { StadiumSoundboard } from "@/components/StadiumSoundboard";
 import { MatchTacticalDossier } from "@/components/MatchTacticalDossier";
@@ -604,6 +605,9 @@ export default function MatchDetailPage() {
 
       {/* Dynamic AI Audio Commentary Console */}
       <AudioCommentaryPlayer homeName={fixture.home.name} awayName={fixture.away.name} />
+
+      {/* Dual-Broadcaster Radio Commentary Studio & SSML Speech */}
+      <RadioCommentaryPlayer homeName={fixture.home.name} awayName={fixture.away.name} />
 
       {/* Atmospheric Weather & Turf Physical Dynamics */}
       <PitchWeatherGauge />
