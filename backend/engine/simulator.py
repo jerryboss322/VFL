@@ -565,7 +565,8 @@ class MatchEngine:
                     for o in m.get("options", []):
                         o["suspended"] = True
 
-        if just_completed:
+        # Check early condition settlement for in-play bets (Over/Under, BTTS) and full-time settlement
+        if state.status == "live" or just_completed:
             try:
                 await auto_settle_fixture_bets(self.session, fixture)
             except Exception as e:

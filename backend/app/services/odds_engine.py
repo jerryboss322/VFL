@@ -390,13 +390,13 @@ def generate_fixture_markets(
 
     # Dynamic 3-way handicap lines:
     # Lines dynamically shift relative to in-play goal difference so that odds increase/reduce realistically
+    # Prunes dead lines where the outcome is already guaranteed or impossible
     goal_diff = current_home_goals - current_away_goals
-    base_lines = [-3, -2, -1, 1, 2, 3]
     if is_live and goal_diff != 0:
-        inplay_shifts = [-goal_diff - 2, -goal_diff - 1, -goal_diff, -goal_diff + 1, -goal_diff + 2]
-        all_lines = sorted(list(set(base_lines + [l for l in inplay_shifts if -6 <= l <= 6 and l != 0])))
+        inplay_shifts = [-goal_diff - 1, -goal_diff, -goal_diff + 1, -goal_diff - 2, -goal_diff + 2]
+        all_lines = sorted(list(set([l for l in inplay_shifts if -5 <= l <= 5 and l != 0])))
     else:
-        all_lines = sorted(base_lines)
+        all_lines = [-2, -1, 1, 2]
 
     handicap_options: list[dict[str, Any]] = []
     for line in all_lines:
@@ -405,6 +405,11 @@ def generate_fixture_markets(
         p_hcap_away = sum(p for (h, a), p in ft_grid.items() if (h + line) < a)
         h_sign = f"{line:+d}"
         a_sign = f"{-line:+d}"
+
+        # If lead already guarantees or renders a side impossible in-play, enforce condition locking
+        h_cond_locked = is_live and (p_hcap_home <= 0.0005 or p_hcap_home >= 0.94)
+        a_cond_locked = is_live and (p_hcap_away <= 0.0005 or p_hcap_away >= 0.94)
+
         handicap_options.extend(
             [
                 _opt(
@@ -412,6 +417,7 @@ def generate_fixture_markets(
                     f"hcap_{line}_home",
                     f"{home_name} ({h_sign})",
                     p_hcap_home,
+                    force_suspended=h_cond_locked,
                 ),
                 _opt(
                     f"{fid}:hcap:{line}:draw",
@@ -424,8 +430,81 @@ def generate_fixture_markets(
                     f"hcap_{line}_away",
                     f"{away_name} ({a_sign})",
                     p_hcap_away,
+                    force_suspended=a_cond_locked,
                 ),
             ]
+        )
+
+    # Dynamic Asian Handicap lines:
+    # Modeled across full, half, and quarter splits centered on live goal differential
+    ah_options: list[dict[str, Any]] = []
+    if is_live and goal_diff != 0:
+        ah_center = -float(goal_diff)
+        raw_ah_lines = [
+            round(ah_center - 1.0, 2),
+            round(ah_center - 0.75, 2),
+            round(ah_center - 0.5, 2),
+            round(ah_center - 0.25, 2),
+            round(ah_center, 2),
+            round(ah_center + 0.25, 2),
+            round(ah_center + 0.5, 2),
+            round(ah_center + 0.75, 2),
+            round(ah_center + 1.0, 2),
+        ]
+        ah_lines = sorted(list(set([l for l in raw_ah_lines if -4.5 <= l <= 4.5])))
+    else:
+        ah_lines = [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0]
+
+    for ah_line in ah_lines:
+        p_home_win = 0.0
+        p_away_win = 0.0
+        norm_total = 0.0
+
+        for (gh, ga), p in ft_grid.items():
+            diff = gh - ga + ah_line
+            is_quarter = (abs(round(ah_line * 4)) % 2 == 1)
+            if not is_quarter:
+                if diff > 0:
+                    p_home_win += p
+                elif diff < 0:
+                    p_away_win += p
+                norm_total += p
+            else:
+                low_d = gh - ga + (ah_line - 0.25)
+                up_d = gh - ga + (ah_line + 0.25)
+                if low_d > 0 and up_d > 0:
+                    p_home_win += p
+                elif low_d < 0 and up_d < 0:
+                    p_away_win += p
+                elif low_d > 0 or up_d > 0:
+                    p_home_win += p * 0.5
+                    p_away_win += p * 0.5
+                norm_total += p
+
+        if norm_total > 0:
+            p_h = max(0.0001, min(0.999, p_home_win / norm_total))
+            p_a = max(0.0001, min(0.999, p_away_win / norm_total))
+        else:
+            p_h, p_a = 0.5, 0.5
+
+        h_lbl = f"{home_name} ({ah_line:+.2f})"
+        a_lbl = f"{away_name} ({-ah_line:+.2f})"
+
+        ah_options.append(
+            _opt(
+                f"{fid}:ah:{ah_line:+.2f}:home",
+                f"ah_{ah_line:+.2f}_home",
+                h_lbl,
+                p_h,
+            )
+        )
+        ah_options.append(
+            _opt(
+                f"{fid}:ah:{-ah_line:+.2f}:away",
+                f"ah_{-ah_line:+.2f}_away",
+                a_lbl,
+                p_a,
+            )
         )
 
     # Over/Under lines (0.5 to 4.5)
@@ -614,8 +693,14 @@ def generate_fixture_markets(
         {
             "key": "handicap_3way",
             "category": "result",
-            "label": "3-Way Handicap (Max ±3)",
+            "label": "3-Way Handicap",
             "options": handicap_options,
+        },
+        {
+            "key": "asian_handicap",
+            "category": "handicap",
+            "label": "Asian Handicap",
+            "options": ah_options,
         },
         {
             "key": "half_time_result",
@@ -887,6 +972,80 @@ def generate_fixture_markets(
                     opt["suspended"] = True
                     opt["locked"] = True
 
+    # Comprehensive In-Play Condition-Met Locking:
+    # If the event condition has already been met or is impossible, lock the odds immediately
+    if is_live:
+        cur_tot = current_home_goals + current_away_goals
+        for m in markets:
+            mkey = m.get("key", "")
+            # Over/Under total goals
+            if mkey in ("over_under_goals", "over_under_2_5"):
+                for opt in m.get("options", []):
+                    o_out = opt.get("outcome", "")
+                    for t in (0, 1, 2, 3, 4):
+                        if f"_{t}_5" in o_out or f"{t}.5" in opt.get("label", ""):
+                            if cur_tot > t:
+                                opt["suspended"] = True
+                                opt["locked"] = True
+
+            # Team Goals Over/Under
+            if mkey == "home_team_goals_ou":
+                for opt in m.get("options", []):
+                    for t in (0, 1, 2):
+                        if f"_{t}_5" in opt.get("outcome", ""):
+                            if current_home_goals > t:
+                                opt["suspended"] = True
+                                opt["locked"] = True
+            if mkey == "away_team_goals_ou":
+                for opt in m.get("options", []):
+                    for t in (0, 1, 2):
+                        if f"_{t}_5" in opt.get("outcome", ""):
+                            if current_away_goals > t:
+                                opt["suspended"] = True
+                                opt["locked"] = True
+
+            # Exact goals
+            if mkey == "exact_total_goals":
+                for opt in m.get("options", []):
+                    try:
+                        exact_val = int(opt["outcome"].split("_")[-1])
+                        if exact_val < cur_tot:
+                            opt["suspended"] = True
+                            opt["locked"] = True
+                    except Exception:
+                        pass
+            if mkey == "exact_home_goals":
+                for opt in m.get("options", []):
+                    try:
+                        exact_val = int(opt["outcome"].split("_")[-1])
+                        if exact_val < current_home_goals:
+                            opt["suspended"] = True
+                            opt["locked"] = True
+                    except Exception:
+                        pass
+            if mkey == "exact_away_goals":
+                for opt in m.get("options", []):
+                    try:
+                        exact_val = int(opt["outcome"].split("_")[-1])
+                        if exact_val < current_away_goals:
+                            opt["suspended"] = True
+                            opt["locked"] = True
+                    except Exception:
+                        pass
+
+            # Correct score
+            if mkey in ("correct_score", "ht_correct_score"):
+                for opt in m.get("options", []):
+                    lbl = opt.get("label", "")
+                    if "-" in lbl:
+                        try:
+                            ch, ca = [int(x.strip()) for x in lbl.split("-")]
+                            if ch < current_home_goals or ca < current_away_goals:
+                                opt["suspended"] = True
+                                opt["locked"] = True
+                        except Exception:
+                            pass
+
     # Universal enforcement: Any odd lower than 1.07 must be locked
     for m in markets:
         for opt in m.get("options", []):
@@ -1024,6 +1183,29 @@ def evaluate_selection_outcome(
                     return adj_home < away_goals
             except ValueError:
                 pass
+
+    # 4b. Asian Handicap (ah_<line>_<home|away>)
+    if key == "asian_handicap" or out.startswith("ah_") or ":ah:" in oid:
+        try:
+            parts = out.split("_")
+            if len(parts) >= 3:
+                line_val = float(parts[1])
+                is_home = (parts[2] == "home")
+                try:
+                    from backend.app.services.asian_handicap import settle_asian_handicap, AsianSettlementOutcome
+                except ImportError:
+                    from app.services.asian_handicap import settle_asian_handicap, AsianSettlementOutcome
+                ah_res = settle_asian_handicap(
+                    stake_minor=1000,
+                    odds_decimal=2.00,
+                    handicap=line_val,
+                    home_goals=home_goals,
+                    away_goals=away_goals,
+                    is_home_bet=is_home,
+                )
+                return ah_res.outcome in (AsianSettlementOutcome.WON, AsianSettlementOutcome.HALF_WON, AsianSettlementOutcome.PUSH)
+        except Exception:
+            pass
 
     # 5. Half-Time Result
     if key == "half_time_result":
@@ -1262,3 +1444,100 @@ def evaluate_selection_outcome(
 
 # Backwards compatibility alias
 evaluate_market_outcome = evaluate_selection_outcome
+
+
+def evaluate_early_condition_settlement(
+    market_key: str,
+    outcome: str | None,
+    label: str | None,
+    odds_id: str | None,
+    home_goals: int,
+    away_goals: int,
+    clock_seconds: int = 0,
+    match_duration_seconds: int = 480,
+    events: list[dict[str, Any]] | None = None,
+) -> tuple[bool, bool]:
+    """Evaluate whether an in-play selection's condition has ALREADY been met before full-time.
+
+    Returns:
+        (is_concluded, is_won):
+        - is_concluded=True, is_won=True: The condition was met (e.g. Over 1.5 with 2 goals scored). Settles WON early.
+        - is_concluded=True, is_won=False: The condition is now mathematically impossible (e.g. Under 1.5 with 2 goals). Settles LOST early.
+        - is_concluded=False, is_won=False: Outcome remains undetermined until more goals or full-time.
+    """
+    key = (market_key or "").lower()
+    out = (outcome or "").lower()
+    lbl = (label or "").lower()
+    oid = (odds_id or "").lower()
+    total = home_goals + away_goals
+
+    # 1. Total Goals Over/Under (Over lines win early when threshold exceeded; Under lines lose early)
+    if key in ("over_under_2_5", "over_under_goals"):
+        for threshold in (0, 1, 2, 3, 4):
+            slug = f"{threshold}_5"
+            if out == f"over_{slug}" or oid.endswith(f"over_{slug}") or f"over_{slug}" in oid:
+                if total > threshold:
+                    return (True, True)  # Over condition met -> WON
+            if out == f"under_{slug}" or oid.endswith(f"under_{slug}") or f"under_{slug}" in oid:
+                if total > threshold:
+                    return (True, False)  # Total exceeded line -> Under impossible -> LOST
+
+        # Legacy 2.5 aliases
+        if out in ("over", "over_2_5") or oid.endswith(":over") or ":over_2_5" in oid:
+            if total >= 3:
+                return (True, True)
+        if out in ("under", "under_2_5") or oid.endswith(":under") or ":under_2_5" in oid:
+            if total >= 3:
+                return (True, False)
+
+    # 2. Both Teams To Score (BTTS Yes wins early; BTTS No loses early once both score)
+    if key == "both_teams_to_score":
+        if home_goals >= 1 and away_goals >= 1:
+            if out in ("yes", "btts_yes") or "yes" in lbl or oid.endswith(":yes"):
+                return (True, True)  # Both teams scored -> WON
+            if out in ("no", "btts_no") or "no" in lbl or oid.endswith(":no"):
+                return (True, False)  # Both teams scored -> Clean sheet impossible -> LOST
+
+    # 3. Home Team Goals Over/Under
+    if key == "home_team_goals_ou":
+        for threshold in (0, 1, 2):
+            slug = f"{threshold}_5"
+            if out == f"home_over_{slug}" or f"home_over_{slug}" in oid:
+                if home_goals > threshold:
+                    return (True, True)
+            if out == f"home_under_{slug}" or f"home_under_{slug}" in oid:
+                if home_goals > threshold:
+                    return (True, False)
+
+    # 4. Away Team Goals Over/Under
+    if key == "away_team_goals_ou":
+        for threshold in (0, 1, 2):
+            slug = f"{threshold}_5"
+            if out == f"away_over_{slug}" or f"away_over_{slug}" in oid:
+                if away_goals > threshold:
+                    return (True, True)
+            if out == f"away_under_{slug}" or f"away_under_{slug}" in oid:
+                if away_goals > threshold:
+                    return (True, False)
+
+    # 5. First Half Markets concluded at half-time (clock >= 240)
+    half_boundary = match_duration_seconds // 2
+    if clock_seconds >= half_boundary and key in (
+        "half_time_result",
+        "first_half_goals_ou",
+        "ht_correct_score",
+        "ht_ft",
+        "ht_ft_and_ou_2_5",
+    ):
+        won = evaluate_selection_outcome(
+            market_key=key,
+            outcome=outcome,
+            label=label,
+            odds_id=odds_id,
+            home_goals=home_goals,
+            away_goals=away_goals,
+            events=events,
+        )
+        return (True, won)
+
+    return (False, False)

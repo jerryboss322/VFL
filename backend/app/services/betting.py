@@ -567,11 +567,12 @@ async def cashout_bet(
 
 
 async def auto_settle_fixture_bets(session: AsyncSession, fixture: Fixture) -> list[dict[str, Any]]:
-    """Automatically evaluate and settle all pending bets whose legs are all completed."""
-    if fixture.status != "completed":
+    """Automatically evaluate and settle bets early (in-play when condition met, e.g. Over/Under, BTTS) or at full-time."""
+    if fixture.status not in ("live", "completed"):
         return []
 
     from app.models.match_event import MatchEvent
+    from app.services.odds_engine import evaluate_early_condition_settlement, evaluate_selection_outcome
 
     result = await session.execute(select(Bet).where(Bet.status == "pending"))
     pending_bets = result.scalars().all()
@@ -611,8 +612,9 @@ async def auto_settle_fixture_bets(session: AsyncSession, fixture: Fixture) -> l
         if str(fixture.id) not in leg_fixture_ids and bet.fixture_id != fixture.id:
             continue
 
-        all_completed = True
-        all_won = True
+        all_legs_concluded = True
+        all_legs_won = True
+        any_leg_lost = False
 
         for s in selections:
             fid_str = str(s.get("fixture_id") or s.get("fixtureId") or bet.fixture_id)
@@ -622,26 +624,59 @@ async def auto_settle_fixture_bets(session: AsyncSession, fixture: Fixture) -> l
                 fx_res = await session.execute(select(Fixture).where(Fixture.id == UUID(fid_str)))
                 fx = fx_res.scalar_one_or_none()
 
-            if fx is None or fx.status != "completed":
-                all_completed = False
+            if fx is None:
+                all_legs_concluded = False
                 break
 
             fx_events = await _load_events_for_fixture(fid_str)
+            h_goals = fx.home_goals or 0
+            a_goals = fx.away_goals or 0
+            clock_sec = fx.clock_seconds or 0
 
-            leg_won = evaluate_selection_outcome(
+            # 1. Early condition settlement (Over/Under, BTTS, 1H completed)
+            is_early_done, early_won = evaluate_early_condition_settlement(
                 market_key=s.get("market", "match_winner"),
                 outcome=s.get("outcome"),
                 label=s.get("label", ""),
                 odds_id=s.get("odds_id") or s.get("oddsId"),
-                home_goals=fx.home_goals or 0,
-                away_goals=fx.away_goals or 0,
+                home_goals=h_goals,
+                away_goals=a_goals,
+                clock_seconds=clock_sec,
+                match_duration_seconds=480,
                 events=fx_events,
             )
-            if not leg_won:
-                all_won = False
 
-        if all_completed:
-            settled = await settle_bet(session, bet, fixture, won=all_won)
+            if is_early_done:
+                if not early_won:
+                    any_leg_lost = True
+                    break
+                # Leg concluded and won early! Move to next leg
+                continue
+
+            # 2. Match completion settlement
+            if fx.status == "completed":
+                leg_won = evaluate_selection_outcome(
+                    market_key=s.get("market", "match_winner"),
+                    outcome=s.get("outcome"),
+                    label=s.get("label", ""),
+                    odds_id=s.get("odds_id") or s.get("oddsId"),
+                    home_goals=h_goals,
+                    away_goals=a_goals,
+                    events=fx_events,
+                )
+                if not leg_won:
+                    any_leg_lost = True
+                    break
+            else:
+                # Leg is not concluded early and fixture is still in progress
+                all_legs_concluded = False
+                break
+
+        if any_leg_lost:
+            settled = await settle_bet(session, bet, fixture, won=False)
+            settled_results.append(settled)
+        elif all_legs_concluded:
+            settled = await settle_bet(session, bet, fixture, won=True)
             settled_results.append(settled)
 
     return settled_results
