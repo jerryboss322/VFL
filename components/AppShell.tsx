@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import React, { useState, type ReactNode } from "react";
 import { AppProvider, useApp } from "@/components/AppContext";
 import { AudioToggle } from "@/components/AudioToggle";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { AuthModal } from "@/components/AuthModal";
 import { CommandPalette } from "@/components/CommandPalette";
 import { BetslipDrawer } from "@/components/BetslipDrawer";
@@ -159,6 +160,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               <kbd className="rounded bg-line px-1 text-[9px] font-mono text-zinc-400">⌘K</kbd>
             </button>
             <AudioToggle />
+            <LanguageSelector />
             {user && wallet ? (
               <>
                 {user.isAdmin ? (
