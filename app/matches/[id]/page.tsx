@@ -251,6 +251,22 @@ export default function MatchDetailPage() {
     });
   }, [odds, marketCategory, marketSearch]);
 
+  const koMs = fixture ? new Date(fixture.kickoffAt).getTime() : 0;
+  const secondsToKickoff = fixture ? Math.max(0, Math.round((koMs - nowMs) / 1000)) : 0;
+
+  // Trigger immediate load when countdown reaches 0 to transition seamlessly to live in-play
+  const triggeredKickoffRef = useRef(false);
+  useEffect(() => {
+    if (isUpcoming && secondsToKickoff === 0 && fixture) {
+      if (!triggeredKickoffRef.current) {
+        triggeredKickoffRef.current = true;
+        void loadData();
+      }
+    } else if (secondsToKickoff > 0) {
+      triggeredKickoffRef.current = false;
+    }
+  }, [isUpcoming, secondsToKickoff, loadData, fixture]);
+
   if (loading) {
     return <StatePanel tone="loading" title="Loading match center telemetry..." />;
   }
@@ -265,22 +281,7 @@ export default function MatchDetailPage() {
     );
   }
 
-  const koMs = new Date(fixture.kickoffAt).getTime();
-  const secondsToKickoff = Math.max(0, Math.round((koMs - nowMs) / 1000));
   const matchProgressPct = Math.min(100, Math.round((effectiveClock / 480) * 100));
-
-  // Trigger immediate load when countdown reaches 0 to transition seamlessly to live in-play
-  const triggeredKickoffRef = useRef(false);
-  useEffect(() => {
-    if (isUpcoming && secondsToKickoff === 0) {
-      if (!triggeredKickoffRef.current) {
-        triggeredKickoffRef.current = true;
-        void loadData();
-      }
-    } else if (secondsToKickoff > 0) {
-      triggeredKickoffRef.current = false;
-    }
-  }, [isUpcoming, secondsToKickoff, loadData]);
 
   return (
     <div className="space-y-6">

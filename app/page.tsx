@@ -324,6 +324,28 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [visibleFixtures]);
 
+  const isCurrentlyLive = liveFixturesAll.length > 0;
+  const nextKickoffMs = nextUpcomingFixtures[0]
+    ? new Date(nextUpcomingFixtures[0].kickoffAt).getTime()
+    : null;
+  const secondsUntilKickoff =
+    nextKickoffMs !== null
+      ? Math.max(0, Math.round((nextKickoffMs - nowMs) / 1000))
+      : 0;
+
+  // Trigger immediate load when countdown reaches 0 to transition seamlessly to live in-play
+  const triggeredKickoffRef = useRef(false);
+  useEffect(() => {
+    if (secondsUntilKickoff === 0 && !isCurrentlyLive && fixtures.length > 0) {
+      if (!triggeredKickoffRef.current) {
+        triggeredKickoffRef.current = true;
+        void loadFixtures(false);
+      }
+    } else if (secondsUntilKickoff > 0) {
+      triggeredKickoffRef.current = false;
+    }
+  }, [secondsUntilKickoff, isCurrentlyLive, fixtures.length, loadFixtures]);
+
   if (loading) {
     return (
       <StatePanel
@@ -343,7 +365,6 @@ export default function HomePage() {
     return <StatePanel tone="empty" title="No fixtures scheduled for this league" />;
   }
 
-  const isCurrentlyLive = liveFixturesAll.length > 0;
   const activeLiveMd = isCurrentlyLive ? liveFixturesAll[0]?.matchday : null;
   const activeLiveClock = isCurrentlyLive
     ? Math.max(...liveFixturesAll.map((f) => f.clockSeconds ?? 0))
@@ -351,30 +372,10 @@ export default function HomePage() {
   const liveProgressPct = Math.min(100, Math.round((activeLiveClock / 480) * 100));
 
   const nextMdNumber = nextUpcomingFixtures[0]?.matchday ?? null;
-  const nextKickoffMs = nextUpcomingFixtures[0]
-    ? new Date(nextUpcomingFixtures[0].kickoffAt).getTime()
-    : null;
-  const secondsUntilKickoff =
-    nextKickoffMs !== null
-      ? Math.max(0, Math.round((nextKickoffMs - nowMs) / 1000))
-      : 0;
   const countdownProgressPct = Math.min(
     100,
     Math.max(0, Math.round(((240 - secondsUntilKickoff) / 240) * 100)),
   );
-
-  // Trigger immediate load when countdown reaches 0 to transition seamlessly to live in-play
-  const triggeredKickoffRef = useRef(false);
-  useEffect(() => {
-    if (secondsUntilKickoff === 0 && !isCurrentlyLive && fixtures.length > 0) {
-      if (!triggeredKickoffRef.current) {
-        triggeredKickoffRef.current = true;
-        void loadFixtures(false);
-      }
-    } else if (secondsUntilKickoff > 0) {
-      triggeredKickoffRef.current = false;
-    }
-  }, [secondsUntilKickoff, isCurrentlyLive, fixtures.length, loadFixtures]);
 
   const currentLeagueLogo = selectedLeague ? (LEAGUE_LOGOS[selectedLeague.shortName] || LEAGUE_LOGOS[selectedLeague.name]) : null;
 
