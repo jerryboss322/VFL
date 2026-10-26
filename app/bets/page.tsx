@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/AppContext";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CashoutSlider } from "@/components/CashoutSlider";
+import { CashoutReofferModal } from "@/components/CashoutReofferModal";
 import { StatePanel } from "@/components/StatePanel";
 import { api } from "@/lib/api/client";
 import { formatMinor } from "@/lib/betslip";
@@ -17,6 +18,7 @@ export default function BetsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cashingOutId, setCashingOutId] = useState<string | null>(null);
+  const [reofferModalBet, setReofferModalBet] = useState<Bet | null>(null);
 
   const loadBets = useCallback(async () => {
     if (!user) {
@@ -312,6 +314,13 @@ export default function BetsPage() {
                           disabled={cashingOutId === b.id}
                           onCashOut={handleCashout}
                         />
+                        <button
+                          type="button"
+                          onClick={() => setReofferModalBet(b)}
+                          className="text-[10px] text-accent hover:underline text-left"
+                        >
+                          Slippage Protection &amp; Auto-Cashout &rarr;
+                        </button>
                       </div>
                     )}
                   </div>
@@ -320,6 +329,20 @@ export default function BetsPage() {
             );
           })}
         </div>
+      )}
+
+      {reofferModalBet && (
+        <CashoutReofferModal
+          isOpen={true}
+          onClose={() => setReofferModalBet(null)}
+          betId={reofferModalBet.id}
+          initialOfferMinor={reofferModalBet.cashoutValueMinor ?? Math.round(reofferModalBet.stakeMinor * 0.9)}
+          originalStakeMinor={reofferModalBet.stakeMinor}
+          maxReturnMinor={Math.round(reofferModalBet.stakeMinor * Number(reofferModalBet.recordedOdds))}
+          onConfirmCashout={async (betId, pct) => {
+            await handleCashout(betId, pct);
+          }}
+        />
       )}
     </div>
   );
