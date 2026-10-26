@@ -186,6 +186,25 @@ At t + 24h, player must explicitly reconfirm. Unconfirmed requests lapse at t + 
 ## 2. Reality Checks
 Periodic modal interruption (15/30/45/60 mins) showing session net PnL and elapsed time.`,
   },
+  {
+    id: "rfc-011",
+    number: "011",
+    title: "Peer-to-Peer (P2P) Betting Exchange & Escrow Matching Architecture",
+    status: "Standard",
+    category: "P2P Exchange & Escrow",
+    authors: "Exchange Matching & Derivatives Working Group",
+    abstract:
+      "Order book price-time matching, Backer stake vs Layer liability escrow collateral conservation, 2.0% net win fee model, and self-cross wash trading prevention.",
+    contentMarkdown: `## 1. Escrow Collateral Equations
+Backer Collateral: E_backer = S (stake in integer minor units)
+Layer Collateral (Liability): E_layer = ceil(S * (Odds - 1.0))
+Total Escrow Held: E_total = E_backer + E_layer = S * Odds
+
+## 2. Post-Settlement Commission
+Commission = floor(NetProfit * 0.02) if NetProfit > 0 else 0
+Payout = E_total - Commission (credited to winner)
+Commission credited to platform treasury reserve.`,
+  },
 ];
 
 export default function DocsPage() {
@@ -229,7 +248,7 @@ export default function DocsPage() {
         <div className="flex items-center gap-3 bg-graphite border border-line rounded-lg px-4 py-2 self-start md:self-auto shadow-sm">
           <div className="text-center">
             <span className="text-[10px] uppercase font-mono text-fog block">Active RFCs</span>
-            <span className="text-base font-bold text-accent font-mono">10 Standards</span>
+            <span className="text-base font-bold text-accent font-mono">{ALL_RFCS.length} Standards</span>
           </div>
         </div>
       </div>
