@@ -663,7 +663,7 @@ export default function MatchDetailPage() {
 
         {(marketCategory === "asian" || (marketCategory === "all" && !marketSearch)) && (
           <div className="mb-4">
-            <AsianHandicapTable fixture={fixture} />
+            <AsianHandicapTable fixture={fixture} odds={odds} />
           </div>
         )}
 

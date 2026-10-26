@@ -173,23 +173,46 @@ export function simulateAsianHandicapSettlement(
 export function generateAsianHandicapOptions(
   homeName: string,
   awayName: string,
-  baseGoalDiff: number = 0.35
+  baseGoalDiff: number = 0.35,
+  currentHomeGoals: number = 0,
+  currentAwayGoals: number = 0,
+  isLive: boolean = false
 ): AsianHandicapOption[] {
-  // Common lines: -1.0, -0.75, -0.5, -0.25, 0.0, +0.25, +0.5, +0.75, +1.0
-  const lines = [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0];
+  const goalDiff = isLive ? currentHomeGoals - currentAwayGoals : 0;
+  const centerLine = isLive && goalDiff !== 0 ? -goalDiff : 0.0;
+
+  const rawLines = isLive && goalDiff !== 0
+    ? [
+        centerLine - 1.0,
+        centerLine - 0.75,
+        centerLine - 0.5,
+        centerLine - 0.25,
+        centerLine,
+        centerLine + 0.25,
+        centerLine + 0.5,
+        centerLine + 0.75,
+        centerLine + 1.0,
+      ]
+    : [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0];
+
+  const lines = rawLines
+    .map((l) => Number(l.toFixed(2)))
+    .filter((l) => Math.abs(l) <= 4.5);
 
   return lines.map((line) => {
-    // Model odds based on handicap offset relative to expected goal difference
-    const homeAdvantage = baseGoalDiff - line;
+    // Model odds based on handicap offset relative to expected goal difference and in-play score
+    const effectiveDiff = baseGoalDiff + goalDiff * 0.75;
+    const homeAdvantage = effectiveDiff - line;
     const homeProb = 1 / (1 + Math.exp(-homeAdvantage * 1.4));
     const awayProb = 1 - homeProb;
 
     // Apply 5.5% bookmaker overround
     const margin = 1.055;
-    const homeOdds = Math.max(1.15, Math.min(6.5, Number((margin / homeProb).toFixed(2))));
-    const awayOdds = Math.max(1.15, Math.min(6.5, Number((margin / awayProb).toFixed(2))));
+    const rawHome = Number((margin / homeProb).toFixed(2));
+    const rawAway = Number((margin / awayProb).toFixed(2));
+    const homeOdds = Math.max(1.02, Math.min(15.0, rawHome));
+    const awayOdds = Math.max(1.02, Math.min(15.0, rawAway));
 
-    const sign = line > 0 ? `+${line}` : `${line}`;
     return {
       key: `ah_${line.toFixed(2)}`,
       handicap: line,
