@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { PlayerTradingCard, type PlayerStockData } from "@/components/PlayerTradingCard";
+import { OrderBookDOM } from "@/components/OrderBookDOM";
 import { formatMinor } from "@/lib/betslip";
 
 const MOCK_PLAYERS: PlayerStockData[] = [
@@ -271,6 +272,16 @@ export default function PlayerExchangePage() {
           <PlayerTradingCard key={player.id} player={player} onTrade={handleTrade} />
         ))}
       </div>
+
+      {/* Level 2 Order Book & Depth of Market (DOM) */}
+      <OrderBookDOM
+        playerName={filteredPlayers[0]?.name ?? "Erling Haaland"}
+        spotPriceMinor={filteredPlayers[0]?.sharePriceMinor ?? 8450}
+        onPlaceLimitOrder={(side, price, qty) => {
+          setToastMessage(`Limit ${side} order placed: ${qty} shares @ ${formatMinor(price)} XTS.`);
+          setTimeout(() => setToastMessage(null), 3000);
+        }}
+      />
 
       {/* Financial Mechanics Card */}
       <div className="rounded-xl border border-line bg-graphite p-6 space-y-4">
