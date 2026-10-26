@@ -64,13 +64,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResult<T
   const token = getStoredToken();
   const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
+  const isGet = !init?.method || init.method.toUpperCase() === "GET";
+  const separator = path.includes("?") ? "&" : "?";
+  const requestPath = isGet ? `${path}${separator}_t=${Date.now()}` : path;
+
   try {
-    const res = await fetch(`${base}${path}`, {
+    const res = await fetch(`${base}${requestPath}`, {
       ...init,
       credentials: "include",
       cache: "no-store",
       headers: {
         "Content-Type": "application/json",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
         ...authHeader,
         ...init?.headers,
       },

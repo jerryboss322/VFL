@@ -86,6 +86,8 @@ async def lazy_simulation_catchup(request: Request, call_next):
         or "/league" in p
         or "/bets" in p
         or "/odds" in p
+        or "/tournaments" in p
+        or "/fantasy" in p
     ) and not p.startswith("/cron") and not p.startswith("/system"):
         import time
         now = time.monotonic()
@@ -97,7 +99,15 @@ async def lazy_simulation_catchup(request: Request, call_next):
                         await run_simulation_tick()
                     except Exception as e:
                         logging.warning("Simulation tick catchup notice: %s", e)
-    return await call_next(request)
+
+    response = await call_next(request)
+
+    # Disable CDN/Edge caching on all dynamic API routes so live match/odds telemetry auto-updates instantaneously
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["Surrogate-Control"] = "no-store"
+    return response
 
 
 @app.exception_handler(HTTPException)
