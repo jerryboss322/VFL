@@ -18,6 +18,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/fantasy", label: "Fantasy Hub" },
   { href: "/player-exchange", label: "Player Exchange" },
   { href: "/copy-trading", label: "Copy Trading" },
+  { href: "/developer-api", label: "Developer API" },
   { href: "/var-center", label: "VAR Center" },
   { href: "/rewards", label: "VIP Rewards" },
   { href: "/responsible-gaming", label: "Safer Play" },
