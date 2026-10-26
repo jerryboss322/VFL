@@ -15,6 +15,7 @@ import { AsianHandicapTable } from "@/components/AsianHandicapTable";
 import { H2HComparison } from "@/components/H2HComparison";
 import { AudioCommentaryPlayer } from "@/components/AudioCommentaryPlayer";
 import { PitchWeatherGauge } from "@/components/PitchWeatherGauge";
+import { StadiumSoundboard } from "@/components/StadiumSoundboard";
 import { api } from "@/lib/api/client";
 import { playGoalChime, playWhistleSound } from "@/lib/sound";
 import type {
@@ -605,6 +606,9 @@ export default function MatchDetailPage() {
 
       {/* Atmospheric Weather & Turf Physical Dynamics */}
       <PitchWeatherGauge />
+
+      {/* Spatial Stadium Audio & Crowd Acoustics Soundboard */}
+      <StadiumSoundboard />
 
       {/* 27 Betting Markets Suite with Category Filter */}
       <section className="space-y-4">
