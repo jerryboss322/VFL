@@ -21,6 +21,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/fantasy-draft", label: "Draft Room" },
   { href: "/waiver-wire", label: "Waiver Wire" },
   { href: "/player-exchange", label: "Player Exchange" },
+  { href: "/p2p-exchange", label: "P2P Exchange" },
   { href: "/copy-trading", label: "Copy Trading" },
   { href: "/bot-studio", label: "Bot Studio" },
   { href: "/developer-api", label: "Developer API" },
