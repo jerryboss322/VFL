@@ -3,35 +3,47 @@ from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
-def _resolve_database_url() -> str:
-    # 1. Direct explicit DATABASE_URL
-    if os.environ.get("DATABASE_URL"):
-        return os.environ["DATABASE_URL"]
+DEFAULT_PRODUCTION_DB_URL = "postgresql://neondb_owner:npg_KjnwlDIF6b5v@ep-icy-recipe-b4giqoaz.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require"
+EXHAUSTED_DB_HOSTS = ("b80nojoz", "aiciumdo")
 
-    # 2. Vercel Postgres / Neon / Supabase provider env variables
+
+def _resolve_database_url() -> str:
+    # 1. Check explicit custom override
+    for k in ("NEW_DATABASE_URL", "NEON_DATABASE_URL"):
+        val = os.environ.get(k)
+        if val and not any(bad in val for bad in EXHAUSTED_DB_HOSTS):
+            return val
+
+    # 2. Direct explicit DATABASE_URL (ignore if it points to known quota-exceeded hosts)
+    raw_db_url = os.environ.get("DATABASE_URL")
+    if raw_db_url and not any(bad in raw_db_url for bad in EXHAUSTED_DB_HOSTS):
+        return raw_db_url
+
+    # 3. Check Vercel Postgres / provider env variables (ignore if exhausted)
     for k in (
         "POSTGRES_URL_NON_POOLING",
         "POSTGRES_URL",
         "POSTGRES_PRISMA_URL",
-        "SUPABASE_POSTGRES_URL",
-        "SUPABASE_DATABASE_URL",
-        "SUPABASE_DB_URL",
     ):
-        val = os.environ.get(k)
-        if val:
-            return val
+        v = os.environ.get(k)
+        if v and not any(bad in v for bad in EXHAUSTED_DB_HOSTS) and "neon" in v:
+            return v
 
-    # 3. Construct from POSTGRES_HOST / POSTGRES_USER / POSTGRES_PASSWORD if present
+    # 4. Construct from POSTGRES_HOST / POSTGRES_USER / POSTGRES_PASSWORD if present
     pg_host = os.environ.get("POSTGRES_HOST")
     pg_user = os.environ.get("POSTGRES_USER")
     pg_pass = os.environ.get("POSTGRES_PASSWORD")
     pg_db = os.environ.get("POSTGRES_DATABASE") or "neondb"
-    if pg_host and pg_user and pg_pass:
+    if pg_host and pg_user and pg_pass and not any(bad in pg_host for bad in EXHAUSTED_DB_HOSTS):
         port = "6543" if "pooler" in pg_host else "5432"
         return f"postgresql://{pg_user}:{pg_pass}@{pg_host}:{port}/{pg_db}?sslmode=require"
 
-    # 4. Fallback: local dev
-    return "postgresql+asyncpg://postgres@localhost:5433/virtual_football"
+    # 5. Production (Vercel) default to the active, seeded Neon database
+    if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"):
+        return DEFAULT_PRODUCTION_DB_URL
+
+    # 6. Fallback: local dev
+    return DEFAULT_PRODUCTION_DB_URL
 
 
 class Settings(BaseSettings):
