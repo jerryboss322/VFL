@@ -12,6 +12,7 @@ import { MatchMomentumChart } from "@/components/MatchMomentumChart";
 import { TacticalHeatmap } from "@/components/TacticalHeatmap";
 import { PlayerRosterRadar } from "@/components/PlayerRosterRadar";
 import { AsianHandicapTable } from "@/components/AsianHandicapTable";
+import { H2HComparison } from "@/components/H2HComparison";
 import { api } from "@/lib/api/client";
 import { playGoalChime, playWhistleSound } from "@/lib/sound";
 import type {
@@ -59,7 +60,7 @@ export default function MatchDetailPage() {
   // Simulation Replay scrubber for completed matches
   const [replayMode, setReplayMode] = useState<boolean>(false);
   const [replaySecond, setReplaySecond] = useState<number>(480);
-  const [tacticalView, setTacticalView] = useState<"radar" | "momentum" | "heatmap" | "lineup">("radar");
+  const [tacticalView, setTacticalView] = useState<"radar" | "momentum" | "heatmap" | "lineup" | "h2h">("radar");
 
   const loadData = useCallback(async () => {
     if (!fixtureId) return;
@@ -465,6 +466,17 @@ export default function MatchDetailPage() {
               >
                 👥 Squad Lineups
               </button>
+              <button
+                type="button"
+                onClick={() => setTacticalView("h2h")}
+                className={`rounded px-3 py-1.5 font-bold transition-all ${
+                  tacticalView === "h2h"
+                    ? "bg-accent text-white shadow-sm"
+                    : "bg-surface text-fog hover:text-white"
+                }`}
+              >
+                📊 H2H & Predictive xG
+              </button>
             </div>
             <div className="hidden sm:flex items-center gap-2 text-[11px] text-fog">
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
@@ -503,6 +515,13 @@ export default function MatchDetailPage() {
             <PlayerRosterRadar
               fixture={fixture}
               events={events}
+            />
+          )}
+
+          {tacticalView === "h2h" && (
+            <H2HComparison
+              homeClub={fixture.home}
+              awayClub={fixture.away}
             />
           )}
         </div>
