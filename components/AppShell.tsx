@@ -6,6 +6,7 @@ import React, { useState, type ReactNode } from "react";
 import { AppProvider, useApp } from "@/components/AppContext";
 import { AudioToggle } from "@/components/AudioToggle";
 import { AuthModal } from "@/components/AuthModal";
+import { CommandPalette } from "@/components/CommandPalette";
 import { BetslipDrawer } from "@/components/BetslipDrawer";
 import { LiveTicker } from "@/components/LiveTicker";
 import { combinedOdds, formatMinor } from "@/lib/betslip";
@@ -142,6 +143,21 @@ function ShellInner({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                const event = new KeyboardEvent("keydown", { key: "k", metaKey: true });
+                window.dispatchEvent(event);
+              }}
+              className="hidden lg:flex items-center gap-1.5 rounded border border-line bg-graphite/60 px-2 py-1 text-xs text-fog hover:text-white hover:border-accent/40"
+              title="Search commands, clubs, docs (Cmd+K)"
+            >
+              <svg className="h-3.5 w-3.5 text-fog" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <span className="text-[11px] font-mono">Search</span>
+              <kbd className="rounded bg-line px-1 text-[9px] font-mono text-zinc-400">⌘K</kbd>
+            </button>
             <AudioToggle />
             {user && wallet ? (
               <>
@@ -448,6 +464,7 @@ function ShellInner({ children }: { children: ReactNode }) {
       </nav>
 
       <AuthModal />
+      <CommandPalette />
     </div>
   );
 }
