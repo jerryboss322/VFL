@@ -306,6 +306,28 @@ When is_live and Goals_home >= 1 and Goals_away >= 1:
 - Market state marked suspended = True, locked = True
 - Protects book against latency arbitrage after goal verification.`,
   },
+  {
+    id: "rfc-017",
+    number: "017",
+    title: "Early In-Play Condition-Met Settlement Protocol & Over/Under Lifecycle Engine",
+    status: "Standard",
+    category: "Quantitative Settlement & Ledger",
+    authors: "Quantitative Settlement & Financial Ledger Working Group",
+    abstract:
+      "Instant deterministic settlement of Over/Under and BTTS wagers during live matches as soon as the qualifying goal threshold is achieved, releasing wallet reserved funds immediately.",
+    contentMarkdown: `## 1. Monotonic Goal Process Invariant
+Since goals scored G(t) = H(t) + A(t) can never be deducted:
+If G(t) > Threshold:
+- Over lines (Over 0.5, 1.5, 2.5) achieve definitive victory: settle WON immediately
+- Under lines (Under 0.5, 1.5, 2.5) become impossible: settle LOST immediately
+- BTTS Yes achieves definitive victory: settle WON immediately
+- BTTS No becomes impossible: settle LOST immediately
+
+## 2. Multi-Leg Fast-Path Resolution
+In accumulator bets, legs are evaluated independently as soon as qualifying in-play conditions are satisfied.
+If all legs achieve satisfaction, payout is credited in-play with full ledger audit.
+If any single leg breaches threshold, the accumulator terminates immediately as lost.`,
+  },
 ];
 
 export default function DocsPage() {
