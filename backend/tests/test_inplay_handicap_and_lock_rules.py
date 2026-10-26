@@ -4,6 +4,7 @@ import unittest
 from backend.app.services.odds_engine import (
     generate_fixture_markets,
     evaluate_selection_outcome,
+    evaluate_early_condition_settlement,
     LOCK_ODDS_THRESHOLD,
 )
 from backend.app.services.asian_handicap import generate_asian_handicap_market
@@ -229,6 +230,161 @@ class TestInPlayHandicapAndLockRules(unittest.TestCase):
         )
         self.assertTrue(done, "BTTS No must be concluded early once both teams scored")
         self.assertFalse(won, "BTTS No must be lost early once both teams scored")
+
+    def test_over_0_5_locked_once_1_goal_scored_fulltime_and_halves(self):
+        # 1-0 at 360 seconds (1 goal total, 120s remaining)
+        markets = generate_fixture_markets(
+            fixture_id="fix-1-goal",
+            home_name="Arsenal",
+            away_name="Chelsea",
+            is_live=True,
+            current_home_goals=1,
+            current_away_goals=0,
+            elapsed_seconds=360,
+        )
+        ou_market = next(m for m in markets if m["key"] == "over_under_goals")
+        over_0_5 = next(o for o in ou_market["options"] if o["outcome"] == "over_0_5")
+        under_0_5 = next(o for o in ou_market["options"] if o["outcome"] == "under_0_5")
+        over_1_5 = next(o for o in ou_market["options"] if o["outcome"] == "over_1_5")
+        under_1_5 = next(o for o in ou_market["options"] if o["outcome"] == "under_1_5")
+
+        self.assertTrue(over_0_5["locked"], "Over 0.5 must be locked once 1 goal scored")
+        self.assertTrue(under_0_5["locked"], "Under 0.5 must be locked once 1 goal scored")
+        self.assertFalse(over_1_5["locked"], "Over 1.5 must remain unlocked at 1-0 with 120s remaining")
+        self.assertFalse(under_1_5["locked"], "Under 1.5 must remain unlocked at 1-0 with 120s remaining")
+
+        # 1st-half Over/Under at 1 goal in 1H (at 180s, 60s remaining in 1H)
+        h1_markets = generate_fixture_markets(
+            fixture_id="fix-1h-goal",
+            home_name="Arsenal",
+            away_name="Chelsea",
+            is_live=True,
+            current_home_goals=1,
+            current_away_goals=0,
+            elapsed_seconds=180,
+        )
+        h1_market = next(m for m in h1_markets if m["key"] == "first_half_goals_ou")
+        h1_over_0_5 = next(o for o in h1_market["options"] if o["outcome"] == "1h_over_0_5")
+        h1_under_0_5 = next(o for o in h1_market["options"] if o["outcome"] == "1h_under_0_5")
+        h1_over_1_5 = next(o for o in h1_market["options"] if o["outcome"] == "1h_over_1_5")
+
+        self.assertTrue(h1_over_0_5["locked"], "1st-half Over 0.5 must be locked once 1 goal scored in 1H")
+        self.assertTrue(h1_under_0_5["locked"], "1st-half Under 0.5 must be locked once 1 goal scored in 1H")
+        self.assertFalse(h1_over_1_5["locked"], "1st-half Over 1.5 must remain unlocked with 1 goal in 1H at 180s")
+
+    def test_over_1_5_locked_once_2_goals_scored_fulltime_and_halves(self):
+        # 2-0 at 360 seconds (2 goals total, 120s remaining)
+        markets = generate_fixture_markets(
+            fixture_id="fix-2-goals",
+            home_name="Real Madrid",
+            away_name="Barcelona",
+            is_live=True,
+            current_home_goals=2,
+            current_away_goals=0,
+            elapsed_seconds=360,
+        )
+        ou_market = next(m for m in markets if m["key"] == "over_under_goals")
+        over_0_5 = next(o for o in ou_market["options"] if o["outcome"] == "over_0_5")
+        over_1_5 = next(o for o in ou_market["options"] if o["outcome"] == "over_1_5")
+        under_1_5 = next(o for o in ou_market["options"] if o["outcome"] == "under_1_5")
+        over_2_5 = next(o for o in ou_market["options"] if o["outcome"] == "over_2_5")
+
+        self.assertTrue(over_0_5["locked"], "Over 0.5 must be locked at 2 goals")
+        self.assertTrue(over_1_5["locked"], "Over 1.5 must be locked once 2 goals scored")
+        self.assertTrue(under_1_5["locked"], "Under 1.5 must be locked once 2 goals scored")
+        self.assertFalse(over_2_5["locked"], "Over 2.5 must remain unlocked at 2 goals with 120s remaining")
+
+        # 1st-half Over 1.5 (at 180s with 2 goals in 1H)
+        h1_markets = generate_fixture_markets(
+            fixture_id="fix-2h1-goals",
+            home_name="Real Madrid",
+            away_name="Barcelona",
+            is_live=True,
+            current_home_goals=2,
+            current_away_goals=0,
+            elapsed_seconds=180,
+        )
+        h1_market = next(m for m in h1_markets if m["key"] == "first_half_goals_ou")
+        h1_over_1_5 = next(o for o in h1_market["options"] if o["outcome"] == "1h_over_1_5")
+        h1_under_1_5 = next(o for o in h1_market["options"] if o["outcome"] == "1h_under_1_5")
+        h1_over_2_5 = next(o for o in h1_market["options"] if o["outcome"] == "1h_over_2_5")
+
+        self.assertTrue(h1_over_1_5["locked"], "1st-half Over 1.5 must be locked once 2 goals scored in 1H")
+        self.assertTrue(h1_under_1_5["locked"], "1st-half Under 1.5 must be locked once 2 goals scored in 1H")
+        self.assertFalse(h1_over_2_5["locked"], "1st-half Over 2.5 must remain unlocked with 2 goals in 1H at 180s")
+
+    def test_second_half_over_under_locking(self):
+        # Match at 300 seconds (2nd half). HT was 1-0. Score is now 2-1 (Total 3 goals, 2nd half goals: 2-0 = 1 home + 1 away = 2 goals in 2H).
+        markets = generate_fixture_markets(
+            fixture_id="fix-2h-check",
+            home_name="Liverpool",
+            away_name="Man City",
+            is_live=True,
+            current_home_goals=2,
+            current_away_goals=1,
+            elapsed_seconds=300,
+            ht_home_goals=1,
+            ht_away_goals=0,
+        )
+
+        # In 2H: 1 home goal in 2H, 1 away goal in 2H -> total 2 goals scored in 2nd half
+        h2_market = next(m for m in markets if m["key"] == "second_half_goals_ou")
+        h2_over_0_5 = next(o for o in h2_market["options"] if o["outcome"] == "2h_over_0_5")
+        h2_under_0_5 = next(o for o in h2_market["options"] if o["outcome"] == "2h_under_0_5")
+        h2_over_1_5 = next(o for o in h2_market["options"] if o["outcome"] == "2h_over_1_5")
+        h2_under_1_5 = next(o for o in h2_market["options"] if o["outcome"] == "2h_under_1_5")
+        h2_over_2_5 = next(o for o in h2_market["options"] if o["outcome"] == "2h_over_2_5")
+
+        self.assertTrue(h2_over_0_5["locked"], "2nd-half Over 0.5 must be locked once 2 goals in 2H")
+        self.assertTrue(h2_under_0_5["locked"], "2nd-half Under 0.5 must be locked once 2 goals in 2H")
+        self.assertTrue(h2_over_1_5["locked"], "2nd-half Over 1.5 must be locked once 2 goals in 2H")
+        self.assertTrue(h2_under_1_5["locked"], "2nd-half Under 1.5 must be locked once 2 goals in 2H")
+        self.assertFalse(h2_over_2_5["locked"], "2nd-half Over 2.5 must remain unlocked when 2 goals in 2H")
+
+        # 1st-half market must be completely closed since clock >= 240
+        h1_market = next(m for m in markets if m["key"] == "first_half_goals_ou")
+        self.assertTrue(h1_market["locked"], "1st-half market must be locked after half time")
+        for o in h1_market["options"]:
+            self.assertTrue(o["locked"], "All 1st-half options must be locked after half time")
+
+    def test_halves_early_condition_settlement(self):
+        # 1. 1st-half Over 0.5 won early in minute 1
+        done, won = evaluate_early_condition_settlement(
+            market_key="first_half_goals_ou",
+            outcome="1h_over_0_5",
+            home_goals=1,
+            away_goals=0,
+            clock_seconds=50,
+        )
+        self.assertTrue(done)
+        self.assertTrue(won)
+
+        # 2. 1st-half Under 0.5 lost early in minute 1
+        done, won = evaluate_early_condition_settlement(
+            market_key="first_half_goals_ou",
+            outcome="1h_under_0_5",
+            home_goals=1,
+            away_goals=0,
+            clock_seconds=50,
+        )
+        self.assertTrue(done)
+        self.assertFalse(won)
+
+        # 3. 2nd-half Over 0.5 won early after 2nd-half goal
+        events = [
+            {"event_type": "goal", "minute": 100, "payload": {"side": "home"}},  # 1H goal
+            {"event_type": "goal", "minute": 280, "payload": {"side": "away"}},  # 2H goal
+        ]
+        done, won = evaluate_early_condition_settlement(
+            market_key="second_half_goals_ou",
+            outcome="2h_over_0_5",
+            home_goals=1,
+            away_goals=1,
+            clock_seconds=300,
+            events=events,
+        )
+        self.assertTrue(done)
+        self.assertTrue(won)
 
 
 if __name__ == "__main__":

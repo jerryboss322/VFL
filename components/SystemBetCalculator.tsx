@@ -121,22 +121,10 @@ export function SystemBetCalculator({
     return availableSystems.find((s) => s.id === activeSystemId) || availableSystems[0];
   }, [availableSystems, activeSystemId]);
 
-  if (count < 3) {
-    return (
-      <div className="p-3 bg-neutral-900/60 border border-neutral-800 rounded-lg text-xs text-neutral-400">
-        <p className="font-semibold text-neutral-300 mb-1">Permutation & System Bets</p>
-        <p>Add {3 - count} more selection{3 - count === 1 ? "" : "s"} to unlock Trixie, Patent, Yankee, and cover bets.</p>
-      </div>
-    );
-  }
-
-  const totalLines = currentSystem?.betsCount || 0;
-  const totalStakeMinor = totalLines * unitStakeMinor;
-
   // Calculate theoretical max return assuming all selections win
   // For each combination of size k, return = unitStake * product(odds)
   const maxReturnMinor = useMemo(() => {
-    if (!currentSystem) return 0;
+    if (!currentSystem || count < 3) return 0;
     const odds = selections.map((s) => s.decimal);
     let totalReturn = 0;
 
@@ -163,6 +151,18 @@ export function SystemBetCalculator({
     }
     return totalReturn;
   }, [currentSystem, selections, unitStakeMinor, count]);
+
+  if (count < 3) {
+    return (
+      <div className="p-3 bg-neutral-900/60 border border-neutral-800 rounded-lg text-xs text-neutral-400">
+        <p className="font-semibold text-neutral-300 mb-1">Permutation & System Bets</p>
+        <p>Add {3 - count} more selection{3 - count === 1 ? "" : "s"} to unlock Trixie, Patent, Yankee, and cover bets.</p>
+      </div>
+    );
+  }
+
+  const totalLines = currentSystem?.betsCount || 0;
+  const totalStakeMinor = totalLines * unitStakeMinor;
 
   return (
     <div className="bg-neutral-950/80 border border-neutral-800 rounded-xl p-3.5 space-y-3">

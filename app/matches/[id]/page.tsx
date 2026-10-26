@@ -19,6 +19,7 @@ import { PitchWeatherGauge } from "@/components/PitchWeatherGauge";
 import { StadiumSoundboard } from "@/components/StadiumSoundboard";
 import { MatchTacticalDossier } from "@/components/MatchTacticalDossier";
 import { api } from "@/lib/api/client";
+import { isOverUnderConditionLocked } from "@/lib/betslip";
 import { playGoalChime, playWhistleSound } from "@/lib/sound";
 import type {
   Fixture,
@@ -683,7 +684,23 @@ export default function MatchDetailPage() {
               const is1HFinished = (fixture.clockSeconds ?? 0) >= 240 || isCompleted;
               const isBTTSMarket = market.key === "both_teams_to_score" || market.key === "btts";
               const isBTTSOccurred = isLive && (fixture.homeGoals ?? 0) >= 1 && (fixture.awayGoals ?? 0) >= 1;
-              const isMarketLocked = (is1HMarket && is1HFinished) || (isBTTSMarket && isBTTSOccurred) || market.suspended;
+              const totalGoals = (displayedScore.home ?? 0) + (displayedScore.away ?? 0);
+              const clockSec = fixture.clockSeconds ?? 0;
+              let h1Goals = clockSec < 240 ? totalGoals : 0;
+              let h2Goals = 0;
+              if (clockSec >= 240) {
+                let ev1h = 0;
+                for (const ev of events) {
+                  if (ev.type === "goal" && ev.minute <= 240) ev1h++;
+                }
+                h1Goals = ev1h;
+                h2Goals = Math.max(0, totalGoals - h1Goals);
+              }
+              const allOptsConditionLocked = isLive && market.options.length > 0 && market.options.every((opt) =>
+                opt.suspended || (opt as { locked?: boolean }).locked || opt.decimal < 1.07 ||
+                isOverUnderConditionLocked(market.key, opt.outcome, opt.label, totalGoals, h1Goals, h2Goals, clockSec)
+              );
+              const isMarketLocked = (is1HMarket && is1HFinished) || (isBTTSMarket && isBTTSOccurred) || market.suspended || allOptsConditionLocked;
 
               return (
                 <div
@@ -705,6 +722,11 @@ export default function MatchDetailPage() {
                       {isBTTSMarket && isBTTSOccurred && (
                         <span className="rounded bg-loss/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-loss border border-loss/40">
                           🔒 BTTS Occurred
+                        </span>
+                      )}
+                      {allOptsConditionLocked && !is1HFinished && !(isBTTSMarket && isBTTSOccurred) && (
+                        <span className="rounded bg-loss/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-loss border border-loss/40">
+                          🔒 Condition Met
                         </span>
                       )}
                       {market.category && (
@@ -729,12 +751,23 @@ export default function MatchDetailPage() {
                       );
                       const isBettingOpen = isUpcoming || isLive;
                       const isOddBelowFloor = opt.decimal < 1.07;
+                      const isOUConditionLocked = isLive && isOverUnderConditionLocked(
+                        market.key,
+                        opt.outcome,
+                        opt.label,
+                        totalGoals,
+                        h1Goals,
+                        h2Goals,
+                        clockSec
+                      );
                       const disabled =
                         !isBettingOpen ||
                         opt.suspended ||
+                        (opt as { locked?: boolean }).locked ||
                         isOddBelowFloor ||
                         (is1HMarket && is1HFinished) ||
-                        (isBTTSMarket && isBTTSOccurred);
+                        (isBTTSMarket && isBTTSOccurred) ||
+                        isOUConditionLocked;
                       const movement = oddsMovementMap[opt.oddsId];
                       return (
                         <button

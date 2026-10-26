@@ -6,6 +6,7 @@ import { useApp } from "@/components/AppContext";
 import { ClubBadge } from "@/components/ClubBadge";
 import { StatePanel } from "@/components/StatePanel";
 import { api } from "@/lib/api/client";
+import { isOverUnderConditionLocked } from "@/lib/betslip";
 import { LEAGUE_LOGOS } from "@/lib/clubLogos";
 import { playGoalChime } from "@/lib/sound";
 
@@ -801,12 +802,24 @@ export default function HomePage() {
                         const isBTTSMarket = displayedMarket.key === "both_teams_to_score" || displayedMarket.key === "btts";
                         const isBTTSOccurred = isLive && (fx.homeGoals ?? 0) >= 1 && (fx.awayGoals ?? 0) >= 1;
                         const isOddBelowFloor = opt.decimal < 1.07;
+                        const fxTotGoals = (fx.homeGoals ?? 0) + (fx.awayGoals ?? 0);
+                        const isOUConditionLocked = isLive && isOverUnderConditionLocked(
+                          displayedMarket.key,
+                          opt.outcome,
+                          opt.label,
+                          fxTotGoals,
+                          (fx.clockSeconds ?? 0) < 240 ? fxTotGoals : undefined,
+                          undefined,
+                          fx.clockSeconds ?? 0
+                        );
                         const disabled =
                           !isBettingOpen ||
                           opt.suspended ||
+                          (opt as { locked?: boolean }).locked ||
                           isOddBelowFloor ||
                           (is1HMarket && is1HFinished) ||
-                          (isBTTSMarket && isBTTSOccurred);
+                          (isBTTSMarket && isBTTSOccurred) ||
+                          isOUConditionLocked;
                         const movement = oddsMovementMap[opt.oddsId];
                         let tag = opt.label;
                         if (opt.outcome === "home" || opt.outcome === "ht_home" || opt.outcome === "2h_home") tag = "1";

@@ -8,13 +8,75 @@ export interface Selection {
   version: number;
   label: string;
   decimal: number;
+  locked?: boolean;
+  suspended?: boolean;
 }
 
 export const LOCK_ODDS_THRESHOLD = 1.07;
 
 /** Determine if an odd is locked due to value threshold or explicit suspension. */
-export function isOddLocked(decimal: number, suspended?: boolean): boolean {
-  return Boolean(suspended || decimal < LOCK_ODDS_THRESHOLD);
+export function isOddLocked(decimal: number, suspended?: boolean, locked?: boolean): boolean {
+  return Boolean(suspended || locked || decimal < LOCK_ODDS_THRESHOLD);
+}
+
+/**
+ * Evaluates whether an in-play Over/Under selection must be locked because its condition is already determined:
+ * - Once 1 goal scored in match: Lock Over 0.5 & Under 0.5
+ * - Once 2 goals scored in match: Lock Over 1.5 & Under 1.5
+ * - Once 3 goals scored in match: Lock Over 2.5 & Under 2.5
+ * - Once 4 goals scored in match: Lock Over 3.5 & Under 3.5
+ * - Once 5 goals scored in match: Lock Over 4.5 & Under 4.5
+ * - In 1st half: Same rules based on 1st-half goals scored (lock Over/Under 0.5 at 1 goal, Over/Under 1.5 at 2 goals, etc.)
+ * - In 2nd half: Same rules based on 2nd-half goals scored (lock Over/Under 0.5 at 1 goal, Over/Under 1.5 at 2 goals, etc.)
+ */
+export function isOverUnderConditionLocked(
+  marketKey: string,
+  outcome: string,
+  label: string,
+  totalGoals: number,
+  firstHalfGoals?: number,
+  secondHalfGoals?: number,
+  clockSeconds?: number
+): boolean {
+  const normKey = (marketKey || "").toLowerCase();
+  const normOut = (outcome || "").toLowerCase();
+  const normLabel = (label || "").toLowerCase();
+
+  // Full match Over/Under
+  if (normKey === "over_under_goals" || normKey === "over_under_2_5") {
+    for (const t of [0, 1, 2, 3, 4]) {
+      if (normOut.includes(`_${t}_5`) || normLabel.includes(`${t}.5`)) {
+        if (totalGoals > t) return true;
+      }
+    }
+    if (totalGoals >= 3 && (normOut === "over_2_5" || normOut === "under_2_5" || normLabel.includes("2.5"))) {
+      return true;
+    }
+  }
+
+  // First-Half Goals Over/Under
+  if (normKey === "first_half_goals_ou") {
+    if (clockSeconds !== undefined && clockSeconds >= 240) return true;
+    const h1 = firstHalfGoals !== undefined ? firstHalfGoals : (clockSeconds !== undefined && clockSeconds < 240 ? totalGoals : 0);
+    for (const t of [0, 1, 2]) {
+      if (normOut.includes(`_${t}_5`) || normLabel.includes(`${t}.5`)) {
+        if (h1 > t) return true;
+      }
+    }
+  }
+
+  // Second-Half Goals Over/Under
+  if (normKey === "second_half_goals_ou") {
+    if (clockSeconds !== undefined && clockSeconds >= 240 && secondHalfGoals !== undefined) {
+      for (const t of [0, 1, 2]) {
+        if (normOut.includes(`_${t}_5`) || normLabel.includes(`${t}.5`)) {
+          if (secondHalfGoals > t) return true;
+        }
+      }
+    }
+  }
+
+  return false;
 }
 
 /** Validates slip selections before placement, strictly enforcing the 1.07 minimum odds threshold. */
@@ -22,11 +84,11 @@ export function validateSlipSelections(slip: Selection[]): { valid: boolean; err
   if (slip.length === 0) {
     return { valid: false, error: "Slip is empty." };
   }
-  const lockedLeg = slip.find((s) => isOddLocked(s.decimal));
+  const lockedLeg = slip.find((s) => isOddLocked(s.decimal, s.suspended, s.locked));
   if (lockedLeg) {
     return {
       valid: false,
-      error: `Selection "${lockedLeg.label}" has odds ${lockedLeg.decimal.toFixed(2)} which is below the 1.07 floor and locked.`,
+      error: `Selection "${lockedLeg.label}" is locked and cannot be placed.`,
     };
   }
   return { valid: true, error: null };

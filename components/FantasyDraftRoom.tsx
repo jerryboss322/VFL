@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { formatMinor } from "@/lib/betslip";
 
 export interface DraftPlayer {
@@ -97,31 +97,13 @@ export function FantasyDraftRoom() {
   const currentPick = pickTimeline[currentPickIndex] || null;
   const isComplete = currentPickIndex >= pickTimeline.length;
 
-  // Turn countdown timer
-  useEffect(() => {
-    if (!isDraftActive || isComplete) return;
-
-    const interval = setInterval(() => {
-      setTimerSeconds((prev) => {
-        if (prev <= 1) {
-          // Auto pick when timer hits 0
-          triggerAutoPick();
-          return 45;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isDraftActive, isComplete, currentPickIndex, availablePlayers]);
-
   const activeTeam = useMemo(() => {
     if (!currentPick) return null;
     return teams.find((t) => t.id === currentPick.teamId) || null;
   }, [currentPick, teams]);
 
   // Check quota for a team
-  const canTeamPickPos = (team: DraftTeam, pos: string) => {
+  const canTeamPickPos = useCallback((team: DraftTeam, pos: string) => {
     const gkp = team.roster.filter((p) => p.position === "GKP").length;
     const def = team.roster.filter((p) => p.position === "DEF").length;
     const mid = team.roster.filter((p) => p.position === "MID").length;
@@ -132,9 +114,9 @@ export function FantasyDraftRoom() {
     if (pos === "MID" && mid >= 5) return false;
     if (pos === "FWD" && fwd >= 3) return false;
     return true;
-  };
+  }, []);
 
-  const handleMakePick = (player: DraftPlayer) => {
+  const handleMakePick = useCallback((player: DraftPlayer) => {
     if (!currentPick || !activeTeam) return;
     if (!canTeamPickPos(activeTeam, player.position)) {
       alert(`Positional quota reached for ${player.position}!`);
@@ -163,16 +145,34 @@ export function FantasyDraftRoom() {
     setAvailablePlayers((prev) => prev.filter((p) => p.id !== player.id));
     setCurrentPickIndex((prev) => prev + 1);
     setTimerSeconds(45);
-  };
+  }, [currentPick, activeTeam, canTeamPickPos, currentPickIndex]);
 
-  const triggerAutoPick = () => {
+  const triggerAutoPick = useCallback(() => {
     if (!currentPick || !activeTeam || availablePlayers.length === 0) return;
     // Find highest VORP player that fits active team's quota
     const candidate = availablePlayers.find((p) => canTeamPickPos(activeTeam, p.position));
     if (candidate) {
       handleMakePick(candidate);
     }
-  };
+  }, [currentPick, activeTeam, availablePlayers, canTeamPickPos, handleMakePick]);
+
+  // Turn countdown timer
+  useEffect(() => {
+    if (!isDraftActive || isComplete) return;
+
+    const interval = setInterval(() => {
+      setTimerSeconds((prev) => {
+        if (prev <= 1) {
+          // Auto pick when timer hits 0
+          triggerAutoPick();
+          return 45;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isDraftActive, isComplete, triggerAutoPick]);
 
   // Filtered pool
   const filteredPlayers = useMemo(() => {

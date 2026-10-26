@@ -976,15 +976,46 @@ def generate_fixture_markets(
     # If the event condition has already been met or is impossible, lock the odds immediately
     if is_live:
         cur_tot = current_home_goals + current_away_goals
+        cur_1h_tot = cur_1h_h + cur_1h_a
+        cur_2h_tot = cur_2h_h + cur_2h_a
         for m in markets:
             mkey = m.get("key", "")
-            # Over/Under total goals
+            # Over/Under total goals (0.5, 1.5, 2.5, 3.5, 4.5)
             if mkey in ("over_under_goals", "over_under_2_5"):
                 for opt in m.get("options", []):
                     o_out = opt.get("outcome", "")
+                    lbl = opt.get("label", "")
                     for t in (0, 1, 2, 3, 4):
-                        if f"_{t}_5" in o_out or f"{t}.5" in opt.get("label", ""):
+                        if f"_{t}_5" in o_out or f"{t}.5" in lbl:
                             if cur_tot > t:
+                                opt["suspended"] = True
+                                opt["locked"] = True
+                # Legacy 2.5 aliases
+                if cur_tot >= 3:
+                    for opt in m.get("options", []):
+                        if opt.get("outcome") in ("over", "over_2_5", "under", "under_2_5") or "2.5" in opt.get("label", ""):
+                            opt["suspended"] = True
+                            opt["locked"] = True
+
+            # First-Half Goals Over/Under (0.5, 1.5, 2.5)
+            if mkey == "first_half_goals_ou":
+                for opt in m.get("options", []):
+                    o_out = opt.get("outcome", "")
+                    lbl = opt.get("label", "")
+                    for t in (0, 1, 2):
+                        if f"_{t}_5" in o_out or f"{t}.5" in lbl:
+                            if cur_1h_tot > t or elapsed_seconds >= half_boundary:
+                                opt["suspended"] = True
+                                opt["locked"] = True
+
+            # Second-Half Goals Over/Under (0.5, 1.5, 2.5)
+            if mkey == "second_half_goals_ou":
+                for opt in m.get("options", []):
+                    o_out = opt.get("outcome", "")
+                    lbl = opt.get("label", "")
+                    for t in (0, 1, 2):
+                        if f"_{t}_5" in o_out or f"{t}.5" in lbl:
+                            if (elapsed_seconds >= half_boundary and cur_2h_tot > t) or (elapsed_seconds >= match_duration_seconds):
                                 opt["suspended"] = True
                                 opt["locked"] = True
 
@@ -992,17 +1023,26 @@ def generate_fixture_markets(
             if mkey == "home_team_goals_ou":
                 for opt in m.get("options", []):
                     for t in (0, 1, 2):
-                        if f"_{t}_5" in opt.get("outcome", ""):
+                        if f"_{t}_5" in opt.get("outcome", "") or f"{t}.5" in opt.get("label", ""):
                             if current_home_goals > t:
                                 opt["suspended"] = True
                                 opt["locked"] = True
             if mkey == "away_team_goals_ou":
                 for opt in m.get("options", []):
                     for t in (0, 1, 2):
-                        if f"_{t}_5" in opt.get("outcome", ""):
+                        if f"_{t}_5" in opt.get("outcome", "") or f"{t}.5" in opt.get("label", ""):
                             if current_away_goals > t:
                                 opt["suspended"] = True
                                 opt["locked"] = True
+
+            # Combination markets containing Under 2.5
+            if cur_tot >= 3 and mkey in ("result_and_ou_2_5", "btts_and_ou_2_5", "ht_ft_and_ou_2_5"):
+                for opt in m.get("options", []):
+                    o_out = opt.get("outcome", "")
+                    lbl = opt.get("label", "")
+                    if "under_2_5" in o_out or "under 2.5" in lbl.lower():
+                        opt["suspended"] = True
+                        opt["locked"] = True
 
             # Exact goals
             if mkey == "exact_total_goals":
@@ -1045,6 +1085,13 @@ def generate_fixture_markets(
                                 opt["locked"] = True
                         except Exception:
                             pass
+
+        # If all options in a market are locked or suspended, mark the whole market locked
+        for m in markets:
+            opts = m.get("options", [])
+            if opts and all(o.get("locked") or o.get("suspended") for o in opts):
+                m["suspended"] = True
+                m["locked"] = True
 
     # Universal enforcement: Any odd lower than 1.07 must be locked
     for m in markets:
@@ -1449,10 +1496,10 @@ evaluate_market_outcome = evaluate_selection_outcome
 def evaluate_early_condition_settlement(
     market_key: str,
     outcome: str | None,
-    label: str | None,
-    odds_id: str | None,
-    home_goals: int,
-    away_goals: int,
+    label: str | None = None,
+    odds_id: str | None = None,
+    home_goals: int = 0,
+    away_goals: int = 0,
     clock_seconds: int = 0,
     match_duration_seconds: int = 480,
     events: list[dict[str, Any]] | None = None,
@@ -1520,11 +1567,47 @@ def evaluate_early_condition_settlement(
                 if away_goals > threshold:
                     return (True, False)
 
-    # 5. First Half Markets concluded at half-time (clock >= 240)
+    # 5. First-Half Goals Over/Under early settlement
+    ctx = _extract_goal_context(home_goals, away_goals, events)
     half_boundary = match_duration_seconds // 2
+    if clock_seconds < half_boundary:
+        ht_total = total
+    else:
+        ht_total = ctx["ht_home"] + ctx["ht_away"]
+    h2_total = max(0, total - ht_total)
+
+    if key == "first_half_goals_ou":
+        for threshold in (0, 1, 2):
+            slug = f"{threshold}_5"
+            if out == f"1h_over_{slug}" or f"1h_over_{slug}" in oid:
+                if ht_total > threshold:
+                    return (True, True)
+                if clock_seconds >= half_boundary and ht_total <= threshold:
+                    return (True, False)
+            if out == f"1h_under_{slug}" or f"1h_under_{slug}" in oid:
+                if ht_total > threshold:
+                    return (True, False)
+                if clock_seconds >= half_boundary and ht_total <= threshold:
+                    return (True, True)
+
+    # 6. Second-Half Goals Over/Under early settlement
+    if key == "second_half_goals_ou" and clock_seconds >= half_boundary:
+        for threshold in (0, 1, 2):
+            slug = f"{threshold}_5"
+            if out == f"2h_over_{slug}" or f"2h_over_{slug}" in oid:
+                if h2_total > threshold:
+                    return (True, True)
+                if clock_seconds >= match_duration_seconds and h2_total <= threshold:
+                    return (True, False)
+            if out == f"2h_under_{slug}" or f"2h_under_{slug}" in oid:
+                if h2_total > threshold:
+                    return (True, False)
+                if clock_seconds >= match_duration_seconds and h2_total <= threshold:
+                    return (True, True)
+
+    # 7. Other First Half Markets concluded at half-time (clock >= 240)
     if clock_seconds >= half_boundary and key in (
         "half_time_result",
-        "first_half_goals_ou",
         "ht_correct_score",
         "ht_ft",
         "ht_ft_and_ou_2_5",

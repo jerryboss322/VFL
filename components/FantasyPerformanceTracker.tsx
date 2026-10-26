@@ -145,7 +145,7 @@ export function FantasyPerformanceTracker({
                         {p.position}
                       </span>
                     </td>
-                    <td className="py-2.5 px-2 text-center text-neutral-300">{p.minutesPlayed}'</td>
+                    <td className="py-2.5 px-2 text-center text-neutral-300">{p.minutesPlayed}&apos;</td>
                     <td className="py-2.5 px-2 text-center text-amber-400 font-bold">{p.goals || "-"}</td>
                     <td className="py-2.5 px-2 text-center text-neutral-300">{p.assists || "-"}</td>
                     <td className="py-2.5 px-2 text-center text-emerald-400">

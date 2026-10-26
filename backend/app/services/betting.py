@@ -180,6 +180,66 @@ async def place_bet(
         mkey = sel.get("market")
         if mkey in ("both_teams_to_score", "btts") and (sel_fixture.home_goals or 0) >= 1 and (sel_fixture.away_goals or 0) >= 1:
             raise BettingError("MARKET_SUSPENDED", "Both teams have already scored; BTTS market is locked.", 409)
+
+        # Comprehensive Over/Under condition-met guards
+        cur_tot_goals = (sel_fixture.home_goals or 0) + (sel_fixture.away_goals or 0)
+        opt_outcome = str(option.get("outcome", ""))
+        opt_label = str(option.get("label", ""))
+        opt_id_str = str(option.get("odds_id", ""))
+
+        if mkey in ("over_under_goals", "over_under_2_5"):
+            for t in (0, 1, 2, 3, 4):
+                if f"_{t}_5" in opt_outcome or f"{t}.5" in opt_label or f"_{t}_5" in opt_id_str:
+                    if cur_tot_goals > t:
+                        raise BettingError(
+                            "MARKET_SUSPENDED",
+                            f"Total goals is already {cur_tot_goals}; Over/Under {t}.5 is locked.",
+                            409,
+                        )
+
+        if mkey == "first_half_goals_ou":
+            clock_sec = sel_fixture.clock_seconds or 0
+            if clock_sec < 240:
+                h1_goals = cur_tot_goals
+            else:
+                from app.models.match_event import MatchEvent
+                ev_res = await session.execute(
+                    select(MatchEvent)
+                    .where(MatchEvent.fixture_id == sel_fixture.id)
+                    .where(MatchEvent.event_type == "goal")
+                    .where(MatchEvent.minute <= 240)
+                )
+                h1_goals = len(ev_res.scalars().all())
+            for t in (0, 1, 2):
+                if f"_{t}_5" in opt_outcome or f"{t}.5" in opt_label or f"_{t}_5" in opt_id_str:
+                    if h1_goals > t:
+                        raise BettingError(
+                            "MARKET_SUSPENDED",
+                            f"First-half goals is already {h1_goals}; 1st Half Over/Under {t}.5 is locked.",
+                            409,
+                        )
+
+        if mkey == "second_half_goals_ou":
+            clock_sec = sel_fixture.clock_seconds or 0
+            if clock_sec >= 240:
+                from app.models.match_event import MatchEvent
+                ev_res = await session.execute(
+                    select(MatchEvent)
+                    .where(MatchEvent.fixture_id == sel_fixture.id)
+                    .where(MatchEvent.event_type == "goal")
+                    .where(MatchEvent.minute <= 240)
+                )
+                h1_goals = len(ev_res.scalars().all())
+                h2_goals = max(0, cur_tot_goals - h1_goals)
+                for t in (0, 1, 2):
+                    if f"_{t}_5" in opt_outcome or f"{t}.5" in opt_label or f"_{t}_5" in opt_id_str:
+                        if h2_goals > t:
+                            raise BettingError(
+                                "MARKET_SUSPENDED",
+                                f"Second-half goals is already {h2_goals}; 2nd Half Over/Under {t}.5 is locked.",
+                                409,
+                            )
+
         first_half_markets = {
             "half_time_result",
             "first_half_goals_ou",
