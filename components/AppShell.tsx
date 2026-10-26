@@ -16,6 +16,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/table", label: "Standings" },
   { href: "/tournaments", label: "Cup Bracket" },
   { href: "/fantasy", label: "Fantasy Hub" },
+  { href: "/var-center", label: "VAR Center" },
   { href: "/rewards", label: "VIP Rewards" },
   { href: "/responsible-gaming", label: "Safer Play" },
   { href: "/bets", label: "My Bets" },
