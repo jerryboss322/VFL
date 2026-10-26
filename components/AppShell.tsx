@@ -21,6 +21,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/responsible-gaming", label: "Safer Play" },
   { href: "/bets", label: "My Bets" },
   { href: "/wallet", label: "Wallet & Ledger" },
+  { href: "/audit-ledger", label: "Ledger Audit" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/profile", label: "Profile" },
 ];
