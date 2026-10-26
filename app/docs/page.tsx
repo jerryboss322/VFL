@@ -225,6 +225,25 @@ Optimizes positional advantage across GKP (2), DEF (5), MID (5), and FWD (3).
 ## 3. FAB Blind Bidding
 Claims resolved in order of max(BidAmount_minor). Ties broken by rolling waiver priority rank.`,
   },
+  {
+    id: "rfc-013",
+    number: "013",
+    title: "Video Assistant Referee (VAR) & SAOT Offside Telemetry Protocol",
+    status: "Standard",
+    category: "Referee Systems & SAOT",
+    authors: "Refereeing Technology & Broadcast Systems Architecture",
+    abstract:
+      "Semi-Automated Offside Technology (SAOT) 29-point 3D skeletal tracking, 500Hz ball contact IMU frame resolution, and subjective On-Field Review (OFR) logistic overturn models.",
+    contentMarkdown: `## 1. SAOT Offside Margin Equation
+Δx = max(x_attacker, i) - max(x_defender, j)
+OffsideDecision = OFFSIDE if Δx > 0 else ONSIDE
+
+## 2. Measurement Confidence Function
+C(Δx) = 0.999 if |Δx| >= 50.0mm else (0.880 + (|Δx| / 50.0) * 0.110)
+
+## 3. OFR Overturn Probability
+P(Overturn | S_var) = 1 / (1 + exp(-6.5 * (S_var - 0.50)))`,
+  },
 ];
 
 export default function DocsPage() {
