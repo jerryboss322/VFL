@@ -244,6 +244,23 @@ C(Δx) = 0.999 if |Δx| >= 50.0mm else (0.880 + (|Δx| / 50.0) * 0.110)
 ## 3. OFR Overturn Probability
 P(Overturn | S_var) = 1 / (1 + exp(-6.5 * (S_var - 0.50)))`,
   },
+  {
+    id: "rfc-014",
+    number: "014",
+    title: "Club Transfer Market, Financial Fair Play (FFP) & Player Valuation",
+    status: "Standard",
+    category: "Transfer Market & FFP",
+    authors: "Club Finance & Player Transfer Governance",
+    abstract:
+      "Dynamic player valuation curves based on age and contract Bosman factors, mandatory contractual release clause triggers, and UEFA 70% wage-to-revenue FFP compliance gates.",
+    contentMarkdown: `## 1. Valuation Multiplicative Curve
+V(p) = Base(OVR) * A(Age) * C(ContractYears) * F(Form) * P(Position)
+Base(OVR) = 10^7 * (OVR / 60.0)^4.5 minor units
+
+## 2. UEFA Financial Fair Play (FFP) Cap
+FFPRatio = (AnnualWages + AddedWage * 52) / AnnualRevenue <= 0.70 (70% ceiling)
+Registrations breaching 70% ratio are automatically vetoed by the system.`,
+  },
 ];
 
 export default function DocsPage() {
