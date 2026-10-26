@@ -17,6 +17,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/", label: "Match Center" },
   { href: "/table", label: "Standings" },
   { href: "/calendar", label: "Calendar" },
+  { href: "/player-awards", label: "Player Awards" },
   { href: "/tournaments", label: "Cup Bracket" },
   { href: "/penalty-shootout", label: "Shootout" },
   { href: "/fantasy", label: "Fantasy Hub" },
