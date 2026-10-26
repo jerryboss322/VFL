@@ -18,6 +18,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/table", label: "Standings" },
   { href: "/calendar", label: "Calendar" },
   { href: "/tournaments", label: "Cup Bracket" },
+  { href: "/penalty-shootout", label: "Shootout" },
   { href: "/fantasy", label: "Fantasy Hub" },
   { href: "/fantasy-draft", label: "Draft Room" },
   { href: "/waiver-wire", label: "Waiver Wire" },
