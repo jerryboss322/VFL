@@ -205,6 +205,26 @@ Commission = floor(NetProfit * 0.02) if NetProfit > 0 else 0
 Payout = E_total - Commission (credited to winner)
 Commission credited to platform treasury reserve.`,
   },
+  {
+    id: "rfc-012",
+    number: "012",
+    title: "Fantasy Football Snake Draft & Free Agency Budget (FAB) Specification",
+    status: "Standard",
+    category: "Fantasy Draft & Waivers",
+    authors: "Fantasy League Operations & Quantitative Modeling",
+    abstract:
+      "15-round serpentine snake draft rotation, Value-Over-Replacement Player (VORP) auto-pick metrics, and weekly blind-bid FAB waiver auctions.",
+    contentMarkdown: `## 1. Serpentine Snake Pick Rotation
+TeamIndex(R, k) = k if R is Odd, (N - k + 1) if R is Even.
+Total picks = 15 * N across 15 rounds.
+
+## 2. VORP Formulation
+VORP(i) = ProjectedPoints(i) - ReplacementLevel(Position(i))
+Optimizes positional advantage across GKP (2), DEF (5), MID (5), and FWD (3).
+
+## 3. FAB Blind Bidding
+Claims resolved in order of max(BidAmount_minor). Ties broken by rolling waiver priority rank.`,
+  },
 ];
 
 export default function DocsPage() {
