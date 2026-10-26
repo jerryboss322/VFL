@@ -5,6 +5,8 @@ import React, { useState } from "react";
 import { useApp } from "@/components/AppContext";
 import { CashoutSlider } from "@/components/CashoutSlider";
 import { SystemBetCalculator } from "@/components/SystemBetCalculator";
+import { AutoCashoutModal } from "@/components/AutoCashoutModal";
+import type { Bet } from "@/types/api";
 import { api } from "@/lib/api/client";
 import { combinedOdds, displayReturnMinor, formatMinor, stakeError } from "@/lib/betslip";
 import { playBetPlacedSound, playCashOutSound } from "@/lib/sound";
@@ -31,6 +33,7 @@ export function BetslipDrawer() {
   const [cashingOutId, setCashingOutId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [autoCashoutBet, setAutoCashoutBet] = useState<Bet | null>(null);
 
   const parsedMajor = Number(stakeMajorInput);
   const stakeMinor = Number.isFinite(parsedMajor) ? Math.round(parsedMajor * 100) : 0;
@@ -515,6 +518,13 @@ export function BetslipDrawer() {
                         disabled={cashingOutId === bet.id}
                         onCashOut={handleCashOut}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setAutoCashoutBet(bet)}
+                        className="mt-2 w-full py-1 text-center rounded border border-neutral-700 bg-neutral-900/60 hover:bg-neutral-800 text-[10px] font-mono font-semibold text-neutral-300 transition-colors"
+                      >
+                        ⚙️ Set Auto Cashout / Stop-Loss Rule
+                      </button>
                     </div>
                   </li>
                 );
@@ -531,6 +541,16 @@ export function BetslipDrawer() {
             </Link>
           </div>
         </div>
+      )}
+
+      {autoCashoutBet && (
+        <AutoCashoutModal
+          bet={autoCashoutBet}
+          onClose={() => setAutoCashoutBet(null)}
+          onSaveRule={(_betId, _rule) => {
+            setSuccessMsg("Auto-cashout risk rule activated successfully!");
+          }}
+        />
       )}
     </aside>
   );
