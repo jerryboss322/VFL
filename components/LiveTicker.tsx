@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useApp } from "@/components/AppContext";
 import { api } from "@/lib/api/client";
 import type { Fixture } from "@/types/api";
+import { stadiumCrowdEngine } from "@/lib/crowd_audio_engine";
 
 function clockToMinute(clockSeconds: number | null): string {
   if (clockSeconds === null || clockSeconds <= 0) return "1'";
@@ -16,6 +17,8 @@ function clockToMinute(clockSeconds: number | null): string {
 export function LiveTicker() {
   const { selectedLeagueId, selectedLeague } = useApp();
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const prevScoresRef = useRef<Map<string, number>>(new Map());
+  const [recentGoalFxId, setRecentGoalFxId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedLeagueId) return;
@@ -24,6 +27,31 @@ export function LiveTicker() {
     async function fetchTicker() {
       const res = await api.fixtures.list(undefined, undefined, selectedLeagueId);
       if (res.ok && active) {
+        const prevScores = prevScoresRef.current;
+        let goalScored = false;
+        let goalFxId: string | null = null;
+
+        for (const fx of res.data) {
+          const totalGoals = (fx.homeGoals ?? 0) + (fx.awayGoals ?? 0);
+          if (prevScores.has(fx.id)) {
+            const oldGoals = prevScores.get(fx.id) ?? 0;
+            if (totalGoals > oldGoals) {
+              goalScored = true;
+              goalFxId = fx.id;
+            }
+          }
+          prevScores.set(fx.id, totalGoals);
+        }
+
+        if (goalScored) {
+          stadiumCrowdEngine.triggerRefereeWhistle(false);
+          stadiumCrowdEngine.triggerGoalRoar();
+          if (goalFxId) {
+            setRecentGoalFxId(goalFxId);
+            setTimeout(() => setRecentGoalFxId(null), 6000);
+          }
+        }
+
         setFixtures(res.data);
       }
     }
@@ -112,6 +140,12 @@ export function LiveTicker() {
                 {isLive && (
                   <span className="font-mono text-[10px] font-bold text-live">
                     {clockToMinute(fx.clockSeconds)}
+                  </span>
+                )}
+
+                {recentGoalFxId === fx.id && (
+                  <span className="rounded bg-emerald-400 px-1.5 py-0.5 text-[9px] font-black text-slate-950 animate-bounce shadow-sm shadow-emerald-400/50">
+                    GOAL!
                   </span>
                 )}
               </Link>
