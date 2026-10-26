@@ -18,3 +18,7 @@ from app.models.fantasy import (  # noqa: F401
     FantasyGameweekScore,
     FantasyPlayerValuation,
 )
+from app.models.cup import (  # noqa: F401
+    Tournament,
+    TournamentTie,
+)
