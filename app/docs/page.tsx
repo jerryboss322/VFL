@@ -280,6 +280,32 @@ F_drag = 0.5 * C_d * rho(T) * A * |v_rel| * v_rel
 ## 3. Thermal Fatigue Multiplier
 Psi(T) = 1.00 + (T - 22) * 0.018 for T > 22C (Heatwave dehydration accelerates stamina loss by +21.6%).`,
   },
+  {
+    id: "rfc-016",
+    number: "016",
+    title: "Dynamic In-Play Handicap Shifts, 1.07 Odds Floor & BTTS Event Locking Protocol",
+    status: "Standard",
+    category: "Quantitative Odds & Risk",
+    authors: "Core Mathematical Modeling & Risk Architecture Working Group",
+    abstract:
+      "Dynamic in-play realignment of 3-way handicap lines centered on live score differential, automated locking of odds below 1.07 decimal, and irreversible termination of BTTS markets upon fulfillment.",
+    contentMarkdown: `## 1. Dynamic In-Play 3-Way Handicap Line Rebalancing
+When live score differential DeltaG = Goals_home - Goals_away != 0:
+Lines dynamically expand around -DeltaG:
+L_inplay = L_base U {-DeltaG + k | k in {-2, -1, +1, +2}, -6 <= -DeltaG + k <= 6}
+
+## 2. Strict 1.07 Minimum Odds Floor
+Any selection where DecimalOdds < 1.07 (implied probability >= 93.46%):
+- Suspended immediately: opt.suspended = True, opt.locked = True
+- Unclickable on UI with lock badge
+- Backend rejects bet placement with HTTP 409 MARKET_SUSPENDED
+
+## 3. BTTS Irreversible Event Termination
+When is_live and Goals_home >= 1 and Goals_away >= 1:
+- Both btts_yes and btts_no options are locked (force_suspended=True)
+- Market state marked suspended = True, locked = True
+- Protects book against latency arbitrage after goal verification.`,
+  },
 ];
 
 export default function DocsPage() {
