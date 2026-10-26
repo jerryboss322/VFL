@@ -16,6 +16,7 @@ import { LEAGUE_LOGOS } from "@/lib/clubLogos";
 const NAV: { href: string; label: string }[] = [
   { href: "/", label: "Match Center" },
   { href: "/table", label: "Standings" },
+  { href: "/calendar", label: "Calendar" },
   { href: "/tournaments", label: "Cup Bracket" },
   { href: "/fantasy", label: "Fantasy Hub" },
   { href: "/fantasy-draft", label: "Draft Room" },
