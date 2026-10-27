@@ -18,6 +18,7 @@ export interface MatchPitchRadarProps {
   events?: MatchEvent[];
   clockSeconds?: number;
   isLive?: boolean;
+  defaultViewMode?: "single" | "squad";
 }
 
 const ROLE_LABELS: Record<PlayerRole, string> = {
@@ -55,6 +56,27 @@ interface HoveredPlayer {
   y: number;
 }
 
+interface SinglePlayerState {
+  x: number;
+  y: number;
+  angle: number;
+  isHome: boolean;
+  number: number;
+  role: PlayerRole;
+  title: string;
+  action: string;
+}
+
+interface RadarFrameState {
+  ball: { x: number; y: number; z: number };
+  trail: TrailPoint[];
+  singlePlayer: SinglePlayerState;
+  homePositions: { number: number; x: number; y: number }[];
+  awayPositions: { number: number; x: number; y: number }[];
+  radarScanX: number;
+  goalShockwaveRadius: number;
+}
+
 export function MatchPitchRadar({
   fixture,
   homeClub,
@@ -62,7 +84,9 @@ export function MatchPitchRadar({
   events = [],
   clockSeconds = 0,
   isLive = false,
+  defaultViewMode = "single",
 }: MatchPitchRadarProps) {
+  const [viewMode, setViewMode] = useState<"single" | "squad">(defaultViewMode);
   const [homeFormation, setHomeFormation] = useState<FormationKey>("4-3-3");
   const [awayFormation, setAwayFormation] = useState<FormationKey>("4-2-3-1");
   const [showPitchGrid, setShowPitchGrid] = useState<boolean>(true);
@@ -162,7 +186,7 @@ export function MatchPitchRadar({
     };
   }, [clockSeconds, fixture, isLive, latestEvent]);
 
-  // Dynamic target positions for home and away XI
+  // Dynamic target positions for home and away XI (Tactical squad mode)
   const targetHomePlayers = useMemo(() => {
     const preset = FORMATION_PRESETS[homeFormation];
     return calculateDynamicTeamPositions(preset, targetState.targetPos, true, 1.1);
@@ -173,7 +197,7 @@ export function MatchPitchRadar({
     return calculateDynamicTeamPositions(preset, targetState.targetPos, false, 1.1);
   }, [awayFormation, targetState.targetPos]);
 
-  // Spatial control grid (throttled to target updates only to eliminate 60fps re-calc overhead)
+  // Spatial control grid
   const pitchControlGrid = useMemo(() => {
     return computePitchControlGrid(targetHomePlayers, targetAwayPlayers, 8, 6);
   }, [targetHomePlayers, targetAwayPlayers]);
@@ -192,32 +216,119 @@ export function MatchPitchRadar({
     return Math.round((homeTiltScore / sum) * 100);
   }, [pitchControlGrid]);
 
+  // Target data for the SINGLE focal player (Active ball carrier / primary attacker)
+  const focalTargetSnapshot = useMemo(() => {
+    const isHome =
+      targetState.attackingSide === "home" ||
+      (targetState.attackingSide === "neutral" && ((clockSeconds ?? 0) % 20 < 10));
+    const ballPos = targetState.targetPos;
+
+    let number = 9;
+    let role: PlayerRole = "ST";
+    let action = "In Possession";
+    let targetX = ballPos.x;
+    let targetY = ballPos.y;
+
+    if (targetState.isGoal) {
+      number = 9;
+      role = "ST";
+      action = "Goal Strike!";
+      targetX = isHome ? Math.max(12, ballPos.x - 3.8) : Math.min(93, ballPos.x + 3.8);
+      targetY = ballPos.y;
+    } else if (targetState.isShot) {
+      number = 9;
+      role = "ST";
+      action = "Unleashing Shot";
+      targetX = isHome ? Math.max(12, ballPos.x - 3.2) : Math.min(93, ballPos.x + 3.2);
+      targetY = ballPos.y;
+    } else if (targetState.isCorner) {
+      number = 7;
+      role = "RW";
+      action = "Corner Delivery";
+      targetX = isHome ? 102.5 : 2.5;
+      targetY = ballPos.y > 34 ? 65 : 3;
+    } else if (targetState.dangerLevel === 2) {
+      number = 10;
+      role = "CAM";
+      action = "Attacking Penetration";
+      targetX = isHome ? Math.max(8, ballPos.x - 2.4) : Math.min(97, ballPos.x + 2.4);
+      targetY = ballPos.y;
+    } else if (targetState.dangerLevel === 1) {
+      number = 8;
+      role = "CM";
+      action = "Progressive Dribble";
+      targetX = isHome ? Math.max(8, ballPos.x - 1.8) : Math.min(97, ballPos.x + 1.8);
+      targetY = ballPos.y;
+    } else {
+      number = 8;
+      role = "CM";
+      action = "Midfield Orchestration";
+      targetX = isHome ? Math.max(6, ballPos.x - 1.5) : Math.min(99, ballPos.x + 1.5);
+      targetY = ballPos.y;
+    }
+
+    const title = ROLE_LABELS[role] || "Key Playmaker";
+
+    return {
+      isHome,
+      number,
+      role,
+      title,
+      action,
+      targetX,
+      targetY,
+    };
+  }, [targetState, clockSeconds]);
+
   // ---------------------------------------------------------------------------
-  // 60 FPS CONTINUOUS PHYSICS & INTERPOLATION ENGINE
+  // ULTRA-OPTIMIZED 60 FPS CONTINUOUS PHYSICS ENGINE
+  // Consolidated into 1 unified frame state to prevent React reconciliation lag
   // ---------------------------------------------------------------------------
-  const [renderedBall, setRenderedBall] = useState({ x: 50, y: 50, z: 0 });
-  const [trail, setTrail] = useState<TrailPoint[]>([]);
-  const [homePositions, setHomePositions] = useState(() =>
+  const [frameState, setFrameState] = useState<RadarFrameState>(() => ({
+    ball: { x: 50, y: 50, z: 0 },
+    trail: [],
+    singlePlayer: {
+      x: 48,
+      y: 50,
+      angle: 0,
+      isHome: true,
+      number: 9,
+      role: "ST",
+      title: "Center Forward Striker",
+      action: "In Possession",
+    },
+    homePositions: targetHomePlayers.map((p) => ({ number: p.number, x: p.currentX, y: p.currentY })),
+    awayPositions: targetAwayPlayers.map((p) => ({ number: p.number, x: p.currentX, y: p.currentY })),
+    radarScanX: 0,
+    goalShockwaveRadius: 0,
+  }));
+
+  // Mutable refs for zero-overhead animation computations
+  const ballPosRef = useRef({ x: 50, y: 50, z: 0 });
+  const singlePlayerRef = useRef({ x: 48, y: 50, angle: 0 });
+  const homePositionsRef = useRef(
     targetHomePlayers.map((p) => ({ number: p.number, x: p.currentX, y: p.currentY }))
   );
-  const [awayPositions, setAwayPositions] = useState(() =>
+  const awayPositionsRef = useRef(
     targetAwayPlayers.map((p) => ({ number: p.number, x: p.currentX, y: p.currentY }))
   );
-  const [radarScanX, setRadarScanX] = useState<number>(0);
-  const [goalShockwaveRadius, setGoalShockwaveRadius] = useState<number>(0);
+  const trailRef = useRef<TrailPoint[]>([]);
 
-  // Keep references for animation frame calculations without triggering hook re-subscriptions
-  const ballPosRef = useRef({ x: 50, y: 50, z: 0 });
   const targetBallRef = useRef(targetState.targetPos);
+  const targetFocalRef = useRef(focalTargetSnapshot);
   const targetHomeRef = useRef(targetHomePlayers);
   const targetAwayRef = useRef(targetAwayPlayers);
   const isGoalRef = useRef(targetState.isGoal);
-  const trailRef = useRef<TrailPoint[]>([]);
+  const viewModeRef = useRef(viewMode);
 
   useEffect(() => {
     targetBallRef.current = targetState.targetPos;
     isGoalRef.current = targetState.isGoal;
   }, [targetState.targetPos, targetState.isGoal]);
+
+  useEffect(() => {
+    targetFocalRef.current = focalTargetSnapshot;
+  }, [focalTargetSnapshot]);
 
   useEffect(() => {
     targetHomeRef.current = targetHomePlayers;
@@ -227,7 +338,11 @@ export function MatchPitchRadar({
     targetAwayRef.current = targetAwayPlayers;
   }, [targetAwayPlayers]);
 
-  // High-performance requestAnimationFrame 60fps Loop
+  useEffect(() => {
+    viewModeRef.current = viewMode;
+  }, [viewMode]);
+
+  // High-performance single-pass RAF loop
   useEffect(() => {
     let animId: number;
     let lastTime = performance.now();
@@ -238,64 +353,97 @@ export function MatchPitchRadar({
       const dt = Math.min(0.08, (time - lastTime) / 1000);
       lastTime = time;
 
-      // Smooth ball interpolation (lerp factor based on delta time)
+      // 1. Smooth ball interpolation
       const lerpBallFactor = Math.min(1.0, dt * 6.5);
       const curB = ballPosRef.current;
       const tgtB = targetBallRef.current;
 
-      const nextX = curB.x + (tgtB.x - curB.x) * lerpBallFactor;
-      const nextY = curB.y + (tgtB.y - curB.y) * lerpBallFactor;
-      const nextZ = curB.z + (tgtB.z - curB.z) * lerpBallFactor;
+      const nextBX = curB.x + (tgtB.x - curB.x) * lerpBallFactor;
+      const nextBY = curB.y + (tgtB.y - curB.y) * lerpBallFactor;
+      const nextBZ = curB.z + (tgtB.z - curB.z) * lerpBallFactor;
 
-      ballPosRef.current = { x: nextX, y: nextY, z: nextZ };
-      setRenderedBall({ x: nextX, y: nextY, z: nextZ });
+      ballPosRef.current = { x: nextBX, y: nextBY, z: nextBZ };
 
-      // Trail recording (sample every ~3 frames)
+      // 2. Ball flight trail
       const currentTrail = trailRef.current;
       const updatedTrail: TrailPoint[] = [
-        { x: nextX, y: nextY, z: nextZ, opacity: 0.65 },
-        ...currentTrail
-          .slice(0, 5)
-          .map((p) => ({ ...p, opacity: p.opacity * 0.75 })),
+        { x: nextBX, y: nextBY, z: nextBZ, opacity: 0.7 },
+        ...currentTrail.slice(0, 5).map((p) => ({ ...p, opacity: p.opacity * 0.72 })),
       ];
       trailRef.current = updatedTrail;
-      setTrail(updatedTrail);
 
-      // Smooth player drifting towards tactical anchors
-      const lerpPlayerFactor = Math.min(1.0, dt * 4.2);
-      setHomePositions((prev) =>
-        targetHomeRef.current.map((tgt, i) => {
-          const current = prev[i] || { x: tgt.currentX, y: tgt.currentY };
+      // 3. Smooth single player interpolation (super fast, sub-0.1ms computation)
+      const lerpPlayerFactor = Math.min(1.0, dt * 4.8);
+      const curP = singlePlayerRef.current;
+      const tgtP = targetFocalRef.current;
+
+      const nextPX = curP.x + (tgtP.targetX - curP.x) * lerpPlayerFactor;
+      const nextPY = curP.y + (tgtP.targetY - curP.y) * lerpPlayerFactor;
+
+      // Dynamic angle pointing towards ball or attacking goal
+      const dx = nextBX - nextPX;
+      const dy = nextBY - nextPY;
+      const angle = Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1
+        ? Math.atan2(dy, dx) * (180 / Math.PI)
+        : curP.angle;
+
+      singlePlayerRef.current = { x: nextPX, y: nextPY, angle };
+
+      // 4. Squad positions (ONLY calculated when in squad mode to prevent unnecessary CPU overhead)
+      let nextHome = homePositionsRef.current;
+      let nextAway = awayPositionsRef.current;
+
+      if (viewModeRef.current === "squad") {
+        nextHome = targetHomeRef.current.map((tgt, i) => {
+          const cur = homePositionsRef.current[i] || { x: tgt.currentX, y: tgt.currentY };
           return {
             number: tgt.number,
-            x: current.x + (tgt.currentX - current.x) * lerpPlayerFactor,
-            y: current.y + (tgt.currentY - current.y) * lerpPlayerFactor,
+            x: cur.x + (tgt.currentX - cur.x) * lerpPlayerFactor,
+            y: cur.y + (tgt.currentY - cur.y) * lerpPlayerFactor,
           };
-        })
-      );
+        });
+        homePositionsRef.current = nextHome;
 
-      setAwayPositions((prev) =>
-        targetAwayRef.current.map((tgt, i) => {
-          const current = prev[i] || { x: tgt.currentX, y: tgt.currentY };
+        nextAway = targetAwayRef.current.map((tgt, i) => {
+          const cur = awayPositionsRef.current[i] || { x: tgt.currentX, y: tgt.currentY };
           return {
             number: tgt.number,
-            x: current.x + (tgt.currentX - current.x) * lerpPlayerFactor,
-            y: current.y + (tgt.currentY - current.y) * lerpPlayerFactor,
+            x: cur.x + (tgt.currentX - cur.x) * lerpPlayerFactor,
+            y: cur.y + (tgt.currentY - cur.y) * lerpPlayerFactor,
           };
-        })
-      );
+        });
+        awayPositionsRef.current = nextAway;
+      }
 
-      // Radar scanline position
+      // 5. Radar scanline beam
       scanPos = (scanPos + dt * 24) % 105;
-      setRadarScanX(scanPos);
 
-      // Goal shockwave effect
+      // 6. Goal shockwave
       if (isGoalRef.current) {
         shockwave = (shockwave + dt * 40) % 36;
-        setGoalShockwaveRadius(shockwave);
       } else {
-        setGoalShockwaveRadius(0);
+        shockwave = 0;
       }
+
+      // Single batched state update for seamless 60 FPS
+      setFrameState({
+        ball: { x: nextBX, y: nextBY, z: nextBZ },
+        trail: updatedTrail,
+        singlePlayer: {
+          x: nextPX,
+          y: nextPY,
+          angle,
+          isHome: tgtP.isHome,
+          number: tgtP.number,
+          role: tgtP.role,
+          title: tgtP.title,
+          action: tgtP.action,
+        },
+        homePositions: nextHome,
+        awayPositions: nextAway,
+        radarScanX: scanPos,
+        goalShockwaveRadius: shockwave,
+      });
 
       animId = requestAnimationFrame(frameLoop);
     };
@@ -304,51 +452,83 @@ export function MatchPitchRadar({
     return () => cancelAnimationFrame(animId);
   }, []);
 
-  // Find player currently closest to the ball (possession highlight)
-  const activeCarrier = useMemo(() => {
+  // Find player currently closest to the ball (possession aura in squad mode)
+  const activeSquadCarrier = useMemo(() => {
+    if (viewMode !== "squad") return null;
     let closestDist = Infinity;
     let carrier: { isHome: boolean; number: number; x: number; y: number } | null = null;
 
-    for (const p of homePositions) {
-      const d = Math.hypot(p.x - renderedBall.x, p.y - renderedBall.y);
+    for (const p of frameState.homePositions) {
+      const d = Math.hypot(p.x - frameState.ball.x, p.y - frameState.ball.y);
       if (d < closestDist && d < 9.0) {
         closestDist = d;
         carrier = { isHome: true, number: p.number, x: p.x, y: p.y };
       }
     }
-    for (const p of awayPositions) {
-      const d = Math.hypot(p.x - renderedBall.x, p.y - renderedBall.y);
+    for (const p of frameState.awayPositions) {
+      const d = Math.hypot(p.x - frameState.ball.x, p.y - frameState.ball.y);
       if (d < closestDist && d < 9.0) {
         closestDist = d;
         carrier = { isHome: false, number: p.number, x: p.x, y: p.y };
       }
     }
     return carrier;
-  }, [homePositions, awayPositions, renderedBall.x, renderedBall.y]);
+  }, [viewMode, frameState.homePositions, frameState.awayPositions, frameState.ball.x, frameState.ball.y]);
+
+  const { ball, singlePlayer, trail, radarScanX, goalShockwaveRadius } = frameState;
 
   return (
     <div className="b365-card p-4 space-y-4">
-      {/* Header telemetry & Action Callout */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-line pb-3">
+      {/* Header Telemetry, Mode Toggle & Action Callout */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border-b border-line pb-3">
         <div className="flex items-center gap-2">
           <div className="h-3 w-3 rounded-full bg-accent animate-pulse" />
           <h3 className="font-mono text-sm font-bold uppercase tracking-wider text-white">
             2D Tactical Radar • 60 FPS Live Match Engine
           </h3>
         </div>
-        <div className="flex items-center gap-3 text-xs font-mono">
-          <span className="text-fog">
-            Expected Threat:{" "}
-            <strong className="text-accent">{currentXT.toFixed(3)} xT</strong>
-          </span>
-          <span className="text-fog">
-            Field Tilt:{" "}
-            <strong className="text-gold">{fieldTilt}% Home</strong>
-          </span>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* View Mode Toggle: Single Player (Default) vs Full 22 Squad */}
+          <div className="inline-flex rounded-lg bg-coal p-1 border border-line text-xs font-mono">
+            <button
+              type="button"
+              onClick={() => setViewMode("single")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded font-bold transition-all ${
+                viewMode === "single"
+                  ? "bg-accent text-night shadow"
+                  : "text-fog hover:text-white"
+              }`}
+            >
+              <span>👤</span>
+              <span>Single Player (Focus)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("squad")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded font-bold transition-all ${
+                viewMode === "squad"
+                  ? "bg-accent text-night shadow"
+                  : "text-fog hover:text-white"
+              }`}
+            >
+              <span>👥</span>
+              <span>Full 22 Squad</span>
+            </button>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-3 text-xs font-mono pl-2 border-l border-line">
+            <span className="text-fog">
+              xT: <strong className="text-accent">{currentXT.toFixed(3)}</strong>
+            </span>
+            <span className="text-fog">
+              Field Tilt: <strong className="text-gold">{fieldTilt}% Home</strong>
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Action Banner with Goal Alert */}
+      {/* Action Banner with Goal Alert & Coords */}
       <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2 border border-line">
         <div className="flex items-center gap-2">
           <span
@@ -366,7 +546,7 @@ export function MatchPitchRadar({
           </span>
         </div>
         <div className="font-mono text-[11px] text-fog uppercase">
-          Coords: <span className="text-white font-bold">{renderedBall.x.toFixed(1)}m, {renderedBall.y.toFixed(1)}m</span>
+          Coords: <span className="text-white font-bold">{ball.x.toFixed(1)}m, {ball.y.toFixed(1)}m</span>
         </div>
       </div>
 
@@ -526,123 +706,296 @@ export function MatchPitchRadar({
             </g>
           )}
 
-          {/* ACTIVE CARRIER POSSESSION AURA */}
-          {activeCarrier && (
-            <circle
-              cx={(activeCarrier.x / 100) * 105}
-              cy={(activeCarrier.y / 100) * 68}
-              r={3.8}
-              fill="none"
-              stroke={activeCarrier.isHome ? "#E5B869" : "#38BDF8"}
-              strokeWidth="0.4"
-              strokeOpacity="0.8"
-              strokeDasharray="2 1"
-            />
+          {/* ================================================================= */}
+          {/* MODE 1: SINGLE PLAYER FOCUS (Active Ball Carrier / Attacker)      */}
+          {/* ================================================================= */}
+          {viewMode === "single" && (
+            <g id="single-focal-player">
+              {/* Active Dribble Tether to Ball */}
+              {Math.hypot(singlePlayer.x - ball.x, singlePlayer.y - ball.y) < 14 && (
+                <line
+                  x1={singlePlayer.x}
+                  y1={singlePlayer.y}
+                  x2={ball.x}
+                  y2={ball.y}
+                  stroke={singlePlayer.isHome ? "#E5B869" : "#38BDF8"}
+                  strokeWidth="0.45"
+                  strokeDasharray="1.2 0.8"
+                  strokeOpacity="0.75"
+                />
+              )}
+
+              {/* Shot Trajectory Vector when Striking */}
+              {(targetState.isShot || targetState.isGoal) && (
+                <line
+                  x1={singlePlayer.x}
+                  y1={singlePlayer.y}
+                  x2={singlePlayer.isHome ? 102.5 : 2.5}
+                  y2={34}
+                  stroke="#EF4444"
+                  strokeWidth="0.5"
+                  strokeDasharray="2 1.5"
+                  strokeOpacity="0.85"
+                />
+              )}
+
+              {/* Outer Glowing Possession Aura Ring */}
+              <circle
+                cx={singlePlayer.x}
+                cy={singlePlayer.y}
+                r={5.0}
+                fill="none"
+                stroke={singlePlayer.isHome ? "#E5B869" : "#38BDF8"}
+                strokeWidth="0.4"
+                strokeOpacity="0.6"
+                strokeDasharray="2.5 1.5"
+              />
+
+              {/* Directional Orientation Chevron */}
+              <g
+                transform={`translate(${singlePlayer.x}, ${singlePlayer.y}) rotate(${singlePlayer.angle})`}
+              >
+                <polygon
+                  points="4.6,0 3.0,-1.4 3.0,1.4"
+                  fill={singlePlayer.isHome ? "#E5B869" : "#38BDF8"}
+                  opacity="0.9"
+                />
+              </g>
+
+              {/* Prominent High-Contrast Player Avatar Token */}
+              <circle
+                cx={singlePlayer.x}
+                cy={singlePlayer.y}
+                r={3.2}
+                fill={singlePlayer.isHome ? "#E5B869" : "#38BDF8"}
+                stroke="#0B0E11"
+                strokeWidth="0.75"
+                className="cursor-pointer"
+                onMouseEnter={() =>
+                  setHoveredPlayer({
+                    isHome: singlePlayer.isHome,
+                    number: singlePlayer.number,
+                    role: singlePlayer.role,
+                    title: singlePlayer.title,
+                    rating: 8.4,
+                    x: singlePlayer.x,
+                    y: singlePlayer.y,
+                  })
+                }
+                onMouseLeave={() => setHoveredPlayer(null)}
+              />
+              <circle
+                cx={singlePlayer.x}
+                cy={singlePlayer.y}
+                r={2.4}
+                fill="none"
+                stroke="#0B0E11"
+                strokeWidth="0.25"
+                strokeOpacity="0.4"
+              />
+
+              {/* Squad Jersey Number */}
+              <text
+                x={singlePlayer.x}
+                y={singlePlayer.y + 0.9}
+                fontSize="2.4"
+                fontWeight="900"
+                fill="#0B0E11"
+                textAnchor="middle"
+                className="font-mono select-none"
+              >
+                {singlePlayer.number}
+              </text>
+
+              {/* Floating Tactical Pill Above Player */}
+              <g
+                transform={`translate(${Math.max(16, Math.min(89, singlePlayer.x))}, ${Math.max(
+                  6.5,
+                  singlePlayer.y - 5.5
+                )})`}
+              >
+                <rect
+                  x="-18"
+                  y="-3.5"
+                  width="36"
+                  height="5.4"
+                  rx="1.2"
+                  fill="#0B0E11"
+                  fillOpacity="0.92"
+                  stroke={singlePlayer.isHome ? "#E5B869" : "#38BDF8"}
+                  strokeWidth="0.35"
+                />
+                <text
+                  x="0"
+                  y="-0.2"
+                  fontSize="1.6"
+                  fontWeight="bold"
+                  fill="#FFFFFF"
+                  textAnchor="middle"
+                  className="font-mono"
+                >
+                  {singlePlayer.isHome ? fixture.home.shortName : fixture.away.shortName} #{singlePlayer.number} • {singlePlayer.role}
+                </text>
+              </g>
+
+              {/* Dynamic Action Subtitle Below Player */}
+              <g
+                transform={`translate(${Math.max(16, Math.min(89, singlePlayer.x))}, ${Math.min(
+                  64.5,
+                  singlePlayer.y + 5.8
+                )})`}
+              >
+                <rect
+                  x="-15"
+                  y="-2.4"
+                  width="30"
+                  height="4.0"
+                  rx="0.8"
+                  fill="#000000"
+                  fillOpacity="0.8"
+                  stroke="#ffffff"
+                  strokeWidth="0.2"
+                  strokeOpacity="0.15"
+                />
+                <text
+                  x="0"
+                  y="0.3"
+                  fontSize="1.25"
+                  fontWeight="bold"
+                  fill={singlePlayer.isHome ? "#E5B869" : "#38BDF8"}
+                  textAnchor="middle"
+                  className="font-mono uppercase tracking-wide"
+                >
+                  {singlePlayer.action}
+                </text>
+              </g>
+            </g>
           )}
 
-          {/* HOME PLAYERS (Gold Dots - smoothly animated at 60 FPS) */}
-          <g id="home-players">
-            {homePositions.map((pos) => {
-              const baseData = targetHomePlayers.find((p) => p.number === pos.number);
-              const px = (pos.x / 100) * 105;
-              const py = (pos.y / 100) * 68;
-              const role = baseData?.role || "CM";
-              const title = ROLE_LABELS[role] || "Outfield Player";
+          {/* ================================================================= */}
+          {/* MODE 2: FULL 22-PLAYER SQUAD RADAR                                */}
+          {/* ================================================================= */}
+          {viewMode === "squad" && (
+            <>
+              {/* Possession Aura in Squad Mode */}
+              {activeSquadCarrier && (
+                <circle
+                  cx={(activeSquadCarrier.x / 100) * 105}
+                  cy={(activeSquadCarrier.y / 100) * 68}
+                  r={3.8}
+                  fill="none"
+                  stroke={activeSquadCarrier.isHome ? "#E5B869" : "#38BDF8"}
+                  strokeWidth="0.4"
+                  strokeOpacity="0.8"
+                  strokeDasharray="2 1"
+                />
+              )}
 
-              return (
-                <g
-                  key={`home-${pos.number}`}
-                  className="cursor-pointer"
-                  onMouseEnter={() =>
-                    setHoveredPlayer({
-                      isHome: true,
-                      number: pos.number,
-                      role,
-                      title,
-                      rating: baseData?.rating || 7.2,
-                      x: px,
-                      y: py,
-                    })
-                  }
-                  onMouseLeave={() => setHoveredPlayer(null)}
-                >
-                  <circle
-                    cx={px}
-                    cy={py}
-                    r={1.85}
-                    fill="#E5B869"
-                    stroke="#0B0E11"
-                    strokeWidth="0.45"
-                  />
-                  {showPlayerNumbers && (
-                    <text
-                      x={px}
-                      y={py + 0.55}
-                      fontSize="1.15"
-                      fontWeight="bold"
-                      fill="#0B0E11"
-                      textAnchor="middle"
-                      className="font-mono select-none"
+              {/* HOME PLAYERS (Gold Dots - smoothly animated at 60 FPS) */}
+              <g id="home-players">
+                {frameState.homePositions.map((pos) => {
+                  const baseData = targetHomePlayers.find((p) => p.number === pos.number);
+                  const px = (pos.x / 100) * 105;
+                  const py = (pos.y / 100) * 68;
+                  const role = baseData?.role || "CM";
+                  const title = ROLE_LABELS[role] || "Outfield Player";
+
+                  return (
+                    <g
+                      key={`home-${pos.number}`}
+                      className="cursor-pointer"
+                      onMouseEnter={() =>
+                        setHoveredPlayer({
+                          isHome: true,
+                          number: pos.number,
+                          role,
+                          title,
+                          rating: baseData?.rating || 7.2,
+                          x: px,
+                          y: py,
+                        })
+                      }
+                      onMouseLeave={() => setHoveredPlayer(null)}
                     >
-                      {pos.number}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </g>
+                      <circle
+                        cx={px}
+                        cy={py}
+                        r={1.85}
+                        fill="#E5B869"
+                        stroke="#0B0E11"
+                        strokeWidth="0.45"
+                      />
+                      {showPlayerNumbers && (
+                        <text
+                          x={px}
+                          y={py + 0.55}
+                          fontSize="1.15"
+                          fontWeight="bold"
+                          fill="#0B0E11"
+                          textAnchor="middle"
+                          className="font-mono select-none"
+                        >
+                          {pos.number}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
 
-          {/* AWAY PLAYERS (Sky Blue Dots - smoothly animated at 60 FPS) */}
-          <g id="away-players">
-            {awayPositions.map((pos) => {
-              const baseData = targetAwayPlayers.find((p) => p.number === pos.number);
-              const px = (pos.x / 100) * 105;
-              const py = (pos.y / 100) * 68;
-              const role = baseData?.role || "CM";
-              const title = ROLE_LABELS[role] || "Outfield Player";
+              {/* AWAY PLAYERS (Sky Blue Dots - smoothly animated at 60 FPS) */}
+              <g id="away-players">
+                {frameState.awayPositions.map((pos) => {
+                  const baseData = targetAwayPlayers.find((p) => p.number === pos.number);
+                  const px = (pos.x / 100) * 105;
+                  const py = (pos.y / 100) * 68;
+                  const role = baseData?.role || "CM";
+                  const title = ROLE_LABELS[role] || "Outfield Player";
 
-              return (
-                <g
-                  key={`away-${pos.number}`}
-                  className="cursor-pointer"
-                  onMouseEnter={() =>
-                    setHoveredPlayer({
-                      isHome: false,
-                      number: pos.number,
-                      role,
-                      title,
-                      rating: baseData?.rating || 7.2,
-                      x: px,
-                      y: py,
-                    })
-                  }
-                  onMouseLeave={() => setHoveredPlayer(null)}
-                >
-                  <circle
-                    cx={px}
-                    cy={py}
-                    r={1.85}
-                    fill="#38BDF8"
-                    stroke="#0B0E11"
-                    strokeWidth="0.45"
-                  />
-                  {showPlayerNumbers && (
-                    <text
-                      x={px}
-                      y={py + 0.55}
-                      fontSize="1.15"
-                      fontWeight="bold"
-                      fill="#0B0E11"
-                      textAnchor="middle"
-                      className="font-mono select-none"
+                  return (
+                    <g
+                      key={`away-${pos.number}`}
+                      className="cursor-pointer"
+                      onMouseEnter={() =>
+                        setHoveredPlayer({
+                          isHome: false,
+                          number: pos.number,
+                          role,
+                          title,
+                          rating: baseData?.rating || 7.2,
+                          x: px,
+                          y: py,
+                        })
+                      }
+                      onMouseLeave={() => setHoveredPlayer(null)}
                     >
-                      {pos.number}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </g>
+                      <circle
+                        cx={px}
+                        cy={py}
+                        r={1.85}
+                        fill="#38BDF8"
+                        stroke="#0B0E11"
+                        strokeWidth="0.45"
+                      />
+                      {showPlayerNumbers && (
+                        <text
+                          x={px}
+                          y={py + 0.55}
+                          fontSize="1.15"
+                          fontWeight="bold"
+                          fill="#0B0E11"
+                          textAnchor="middle"
+                          className="font-mono select-none"
+                        >
+                          {pos.number}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
+            </>
+          )}
 
           {/* BALL MOTION TRAIL (Comet passing streak) */}
           <g id="ball-flight-trail">
@@ -662,19 +1015,19 @@ export function MatchPitchRadar({
           <g id="ball-group">
             {/* Dynamic Ground Shadow */}
             <ellipse
-              cx={(renderedBall.x / 100) * 105}
-              cy={(renderedBall.y / 100) * 68 + renderedBall.z * 0.35}
-              rx={1.2 + renderedBall.z * 0.15}
-              ry={0.6 + renderedBall.z * 0.1}
+              cx={(ball.x / 100) * 105}
+              cy={(ball.y / 100) * 68 + ball.z * 0.35}
+              rx={1.2 + ball.z * 0.15}
+              ry={0.6 + ball.z * 0.1}
               fill="#000000"
-              fillOpacity={Math.max(0.12, 0.45 - renderedBall.z * 0.04)}
+              fillOpacity={Math.max(0.12, 0.45 - ball.z * 0.04)}
             />
 
             {/* Elevated Ball Sphere */}
             <circle
-              cx={(renderedBall.x / 100) * 105}
-              cy={(renderedBall.y / 100) * 68 - renderedBall.z * 0.55}
-              r={1.25 + renderedBall.z * 0.12}
+              cx={(ball.x / 100) * 105}
+              cy={(ball.y / 100) * 68 - ball.z * 0.55}
+              r={1.25 + ball.z * 0.12}
               fill="#ffffff"
               stroke="#111827"
               strokeWidth="0.3"
@@ -685,7 +1038,7 @@ export function MatchPitchRadar({
           {/* TACTICAL HOVER CARD (Clean Role & Squad Number — Zero Real Player Names) */}
           {hoveredPlayer && (
             <g
-              transform={`translate(${Math.max(12, Math.min(93, hoveredPlayer.x))}, ${Math.max(
+              transform={`translate(${Math.max(14, Math.min(91, hoveredPlayer.x))}, ${Math.max(
                 10,
                 hoveredPlayer.y - 8
               )})`}
@@ -777,17 +1130,19 @@ export function MatchPitchRadar({
             onChange={(e) => setShowRadarSweep(e.target.checked)}
             className="rounded border-line text-accent focus:ring-0"
           />
-            Tactical Scanline Beam
+          Tactical Scanline Beam
         </label>
-        <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
-          <input
-            type="checkbox"
-            checked={showPlayerNumbers}
-            onChange={(e) => setShowPlayerNumbers(e.target.checked)}
-            className="rounded border-line text-accent focus:ring-0"
-          />
-          Squad Numbers
-        </label>
+        {viewMode === "squad" && (
+          <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
+            <input
+              type="checkbox"
+              checked={showPlayerNumbers}
+              onChange={(e) => setShowPlayerNumbers(e.target.checked)}
+              className="rounded border-line text-accent focus:ring-0"
+            />
+            Squad Numbers
+          </label>
+        )}
         <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
           <input
             type="checkbox"
