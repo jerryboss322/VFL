@@ -367,8 +367,35 @@ export default function HomePage() {
   }
 
   if (error) {
+    const isQuotaError = error.includes("DATABASE_QUOTA_EXCEEDED") || error.toLowerCase().includes("quota");
     return (
-      <StatePanel tone="disconnected" title="Backend not reachable" detail={error} />
+      <div className="space-y-4">
+        <StatePanel
+          tone={isQuotaError ? "error" : "disconnected"}
+          title={isQuotaError ? "Database Quota Exceeded (Neon Postgres)" : "Backend not reachable"}
+          detail={
+            isQuotaError
+              ? "The upstream Neon Postgres database has reached its monthly free tier quota limit. Upgrade the project plan in Neon Console or configure a new DATABASE_URL in Vercel environment variables, then click Retry."
+              : error
+          }
+          action={{
+            label: "Retry Connection",
+            onClick: () => {
+              void loadFixtures();
+            },
+          }}
+        />
+        {isQuotaError && (
+          <div className="rounded-lg border border-line bg-surface p-4 text-xs font-mono space-y-2">
+            <div className="text-gold font-bold uppercase tracking-wider">🛠️ Quick Database Recovery Steps:</div>
+            <ol className="list-decimal list-inside space-y-1 text-fog">
+              <li>Open <span className="text-white">console.neon.tech</span> and upgrade your project plan, OR create a fresh free Postgres database.</li>
+              <li>In Vercel Dashboard → Project Settings → Environment Variables, update <span className="text-accent">DATABASE_URL</span> with the connection string.</li>
+              <li>Hit <span className="text-accent">/api/system/init-db</span> to auto-seed leagues and fixtures, then click Retry above.</li>
+            </ol>
+          </div>
+        )}
+      </div>
     );
   }
 

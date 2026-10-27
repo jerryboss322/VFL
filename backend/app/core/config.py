@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 
 
 DEFAULT_PRODUCTION_DB_URL = "postgresql://neondb_owner:npg_KjnwlDIF6b5v@ep-icy-recipe-b4giqoaz.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require"
-BROKEN_DB_HOSTS = ("b80nojoz", "aiciumdo", ".supabase.co")
+BROKEN_DB_HOSTS = ("b80nojoz", "aiciumdo", ".supabase.co", "b4giqoaz")
 
 
 def _resolve_database_url() -> str:
@@ -26,7 +26,7 @@ def _resolve_database_url() -> str:
         "POSTGRES_PRISMA_URL",
     ):
         v = os.environ.get(k)
-        if v and not any(bad in v for bad in BROKEN_DB_HOSTS) and "neon" in v:
+        if v and not any(bad in v for bad in BROKEN_DB_HOSTS):
             return v
 
     # 4. Construct from POSTGRES_HOST / POSTGRES_USER / POSTGRES_PASSWORD if present
