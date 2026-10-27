@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Club, Fixture, MatchEvent } from "@/types/api";
 import {
   FORMATION_PRESETS,
   type FormationKey,
+  type PlayerRole,
   calculateDynamicTeamPositions,
   computePitchControlGrid,
   getExpectedThreat,
@@ -19,6 +20,41 @@ export interface MatchPitchRadarProps {
   isLive?: boolean;
 }
 
+const ROLE_LABELS: Record<PlayerRole, string> = {
+  GK: "Starting Goalkeeper",
+  CB: "Central Defender",
+  LB: "Left Wingback",
+  RB: "Right Wingback",
+  LWB: "Left Attacking Wingback",
+  RWB: "Right Attacking Wingback",
+  CDM: "Defensive Anchor",
+  CM: "Box-to-Box Midfielder",
+  CAM: "Advanced Playmaker",
+  LM: "Left Wide Midfielder",
+  RM: "Right Wide Midfielder",
+  LW: "Left Inverted Winger",
+  RW: "Right Inverted Winger",
+  ST: "Center Forward Striker",
+  CF: "Second Striker",
+};
+
+interface TrailPoint {
+  x: number;
+  y: number;
+  z: number;
+  opacity: number;
+}
+
+interface HoveredPlayer {
+  isHome: boolean;
+  number: number;
+  role: PlayerRole;
+  title: string;
+  rating: number;
+  x: number;
+  y: number;
+}
+
 export function MatchPitchRadar({
   fixture,
   homeClub,
@@ -31,22 +67,26 @@ export function MatchPitchRadar({
   const [awayFormation, setAwayFormation] = useState<FormationKey>("4-2-3-1");
   const [showPitchGrid, setShowPitchGrid] = useState<boolean>(true);
   const [showPlayerNumbers, setShowPlayerNumbers] = useState<boolean>(true);
-  const [showHeatZones, setShowHeatZones] = useState<boolean>(true);
+  const [showHeatZones, setShowHeatZones] = useState<boolean>(false);
+  const [showRadarSweep, setShowRadarSweep] = useState<boolean>(true);
+  const [hoveredPlayer, setHoveredPlayer] = useState<HoveredPlayer | null>(null);
 
-  // Derive ball position and attacking context from latest event or simulated time
+  // Derive ball target and attacking context from latest event or simulated time
   const latestEvent = events.length > 0 ? events[events.length - 1] : null;
 
-  const { ballPos, actionLabel, attackingSide, dangerLevel } = useMemo(() => {
+  const targetState = useMemo(() => {
     if (!isLive && fixture.status !== "live") {
       return {
-        ballPos: { x: 50, y: 50 },
+        targetPos: { x: 50, y: 50, z: 0 },
         actionLabel: fixture.status === "completed" ? "Full Time Whistle" : "Kickoff Approaching",
         attackingSide: "neutral" as const,
         dangerLevel: 0,
+        isGoal: false,
+        isCorner: false,
+        isShot: false,
       };
     }
 
-    // Deterministic pseudo-random movement based on clock and recent event
     const sec = clockSeconds ?? 0;
     const seed = (sec * 29 + (latestEvent?.minute ?? 0) * 17) % 100;
     const isHome = (sec % 30) < 16;
@@ -54,33 +94,46 @@ export function MatchPitchRadar({
 
     let x = 50;
     let y = 50;
+    let z = 0;
     let label = "Midfield Possession Battle";
     let danger = 0;
+    let isGoal = false;
+    let isCorner = false;
+    let isShot = false;
 
     const eventText = latestEvent?.text?.toLowerCase() ?? "";
 
     if (eventText.includes("goal") || eventText.includes("scores")) {
-      x = isHome ? 94 : 6;
-      y = 50 + (seed % 16 - 8);
-      label = "GOAL! High Velocity Strike";
+      x = isHome ? 96 : 4;
+      y = 50 + ((seed % 16) - 8);
+      z = 2.4;
+      label = isHome ? `GOAL! ${fixture.home.shortName} Strike` : `GOAL! ${fixture.away.shortName} Strike`;
       danger = 3;
+      isGoal = true;
+      isShot = true;
     } else if (eventText.includes("penalty")) {
       x = isHome ? 88 : 12;
       y = 50;
-      label = "PENALTY AWARDED";
+      z = 1.2;
+      label = "PENALTY KICK AWARDED";
       danger = 3;
+      isShot = true;
     } else if (eventText.includes("danger") || eventText.includes("chance") || eventText.includes("shot")) {
-      x = isHome ? 78 + (seed % 14) : 22 - (seed % 14);
+      x = isHome ? 80 + (seed % 14) : 20 - (seed % 14);
       y = 30 + (seed % 40);
+      z = 2.0;
       label = isHome ? `${fixture.home.name} Dangerous Attack` : `${fixture.away.name} Dangerous Attack`;
       danger = 2;
+      isShot = true;
     } else if (eventText.includes("corner")) {
       x = isHome ? 98 : 2;
       y = seed % 2 === 0 ? 5 : 95;
-      label = "Corner Kick (Inswinging)";
+      z = 5.5;
+      label = "Corner Kick (Inswinging Arc)";
       danger = 2;
+      isCorner = true;
     } else {
-      // Normal continuous flow
+      // Fluid possession progression
       if (isHome) {
         x = 42 + (seed % 46);
         y = 15 + (seed % 70);
@@ -95,34 +148,41 @@ export function MatchPitchRadar({
     }
 
     return {
-      ballPos: { x: Math.max(4, Math.min(96, x)), y: Math.max(6, Math.min(94, y)) },
+      targetPos: {
+        x: Math.max(4, Math.min(96, x)),
+        y: Math.max(6, Math.min(94, y)),
+        z,
+      },
       actionLabel: latestEvent?.text || label,
       attackingSide: side,
       dangerLevel: danger,
+      isGoal,
+      isCorner,
+      isShot,
     };
   }, [clockSeconds, fixture, isLive, latestEvent]);
 
-  // Dynamic positions for home and away XI
-  const homePlayers = useMemo(() => {
+  // Dynamic target positions for home and away XI
+  const targetHomePlayers = useMemo(() => {
     const preset = FORMATION_PRESETS[homeFormation];
-    return calculateDynamicTeamPositions(preset, ballPos, true, 1.1);
-  }, [homeFormation, ballPos]);
+    return calculateDynamicTeamPositions(preset, targetState.targetPos, true, 1.1);
+  }, [homeFormation, targetState.targetPos]);
 
-  const awayPlayers = useMemo(() => {
+  const targetAwayPlayers = useMemo(() => {
     const preset = FORMATION_PRESETS[awayFormation];
-    return calculateDynamicTeamPositions(preset, ballPos, false, 1.1);
-  }, [awayFormation, ballPos]);
+    return calculateDynamicTeamPositions(preset, targetState.targetPos, false, 1.1);
+  }, [awayFormation, targetState.targetPos]);
 
+  // Spatial control grid (throttled to target updates only to eliminate 60fps re-calc overhead)
   const pitchControlGrid = useMemo(() => {
-    return computePitchControlGrid(homePlayers, awayPlayers, 8, 6);
-  }, [homePlayers, awayPlayers]);
+    return computePitchControlGrid(targetHomePlayers, targetAwayPlayers, 8, 6);
+  }, [targetHomePlayers, targetAwayPlayers]);
 
   const currentXT = useMemo(() => {
-    return getExpectedThreat(ballPos.x, ballPos.y, attackingSide === "home");
-  }, [ballPos, attackingSide]);
+    return getExpectedThreat(targetState.targetPos.x, targetState.targetPos.y, targetState.attackingSide === "home");
+  }, [targetState.targetPos, targetState.attackingSide]);
 
   const fieldTilt = useMemo(() => {
-    // Percentage of home vs away control in the opposing final thirds
     const homeFinalThird = pitchControlGrid.filter((c) => c.centerX >= 66);
     const homeTiltScore = homeFinalThird.reduce((acc, c) => acc + (c.controlScore > 0 ? c.controlScore : 0), 0);
     const awayFinalThird = pitchControlGrid.filter((c) => c.centerX <= 33);
@@ -132,6 +192,140 @@ export function MatchPitchRadar({
     return Math.round((homeTiltScore / sum) * 100);
   }, [pitchControlGrid]);
 
+  // ---------------------------------------------------------------------------
+  // 60 FPS CONTINUOUS PHYSICS & INTERPOLATION ENGINE
+  // ---------------------------------------------------------------------------
+  const [renderedBall, setRenderedBall] = useState({ x: 50, y: 50, z: 0 });
+  const [trail, setTrail] = useState<TrailPoint[]>([]);
+  const [homePositions, setHomePositions] = useState(() =>
+    targetHomePlayers.map((p) => ({ number: p.number, x: p.currentX, y: p.currentY }))
+  );
+  const [awayPositions, setAwayPositions] = useState(() =>
+    targetAwayPlayers.map((p) => ({ number: p.number, x: p.currentX, y: p.currentY }))
+  );
+  const [radarScanX, setRadarScanX] = useState<number>(0);
+  const [goalShockwaveRadius, setGoalShockwaveRadius] = useState<number>(0);
+
+  // Keep references for animation frame calculations without triggering hook re-subscriptions
+  const ballPosRef = useRef({ x: 50, y: 50, z: 0 });
+  const targetBallRef = useRef(targetState.targetPos);
+  const targetHomeRef = useRef(targetHomePlayers);
+  const targetAwayRef = useRef(targetAwayPlayers);
+  const isGoalRef = useRef(targetState.isGoal);
+  const trailRef = useRef<TrailPoint[]>([]);
+
+  useEffect(() => {
+    targetBallRef.current = targetState.targetPos;
+    isGoalRef.current = targetState.isGoal;
+  }, [targetState.targetPos, targetState.isGoal]);
+
+  useEffect(() => {
+    targetHomeRef.current = targetHomePlayers;
+  }, [targetHomePlayers]);
+
+  useEffect(() => {
+    targetAwayRef.current = targetAwayPlayers;
+  }, [targetAwayPlayers]);
+
+  // High-performance requestAnimationFrame 60fps Loop
+  useEffect(() => {
+    let animId: number;
+    let lastTime = performance.now();
+    let scanPos = 0;
+    let shockwave = 0;
+
+    const frameLoop = (time: number) => {
+      const dt = Math.min(0.08, (time - lastTime) / 1000);
+      lastTime = time;
+
+      // Smooth ball interpolation (lerp factor based on delta time)
+      const lerpBallFactor = Math.min(1.0, dt * 6.5);
+      const curB = ballPosRef.current;
+      const tgtB = targetBallRef.current;
+
+      const nextX = curB.x + (tgtB.x - curB.x) * lerpBallFactor;
+      const nextY = curB.y + (tgtB.y - curB.y) * lerpBallFactor;
+      const nextZ = curB.z + (tgtB.z - curB.z) * lerpBallFactor;
+
+      ballPosRef.current = { x: nextX, y: nextY, z: nextZ };
+      setRenderedBall({ x: nextX, y: nextY, z: nextZ });
+
+      // Trail recording (sample every ~3 frames)
+      const currentTrail = trailRef.current;
+      const updatedTrail: TrailPoint[] = [
+        { x: nextX, y: nextY, z: nextZ, opacity: 0.65 },
+        ...currentTrail
+          .slice(0, 5)
+          .map((p) => ({ ...p, opacity: p.opacity * 0.75 })),
+      ];
+      trailRef.current = updatedTrail;
+      setTrail(updatedTrail);
+
+      // Smooth player drifting towards tactical anchors
+      const lerpPlayerFactor = Math.min(1.0, dt * 4.2);
+      setHomePositions((prev) =>
+        targetHomeRef.current.map((tgt, i) => {
+          const current = prev[i] || { x: tgt.currentX, y: tgt.currentY };
+          return {
+            number: tgt.number,
+            x: current.x + (tgt.currentX - current.x) * lerpPlayerFactor,
+            y: current.y + (tgt.currentY - current.y) * lerpPlayerFactor,
+          };
+        })
+      );
+
+      setAwayPositions((prev) =>
+        targetAwayRef.current.map((tgt, i) => {
+          const current = prev[i] || { x: tgt.currentX, y: tgt.currentY };
+          return {
+            number: tgt.number,
+            x: current.x + (tgt.currentX - current.x) * lerpPlayerFactor,
+            y: current.y + (tgt.currentY - current.y) * lerpPlayerFactor,
+          };
+        })
+      );
+
+      // Radar scanline position
+      scanPos = (scanPos + dt * 24) % 105;
+      setRadarScanX(scanPos);
+
+      // Goal shockwave effect
+      if (isGoalRef.current) {
+        shockwave = (shockwave + dt * 40) % 36;
+        setGoalShockwaveRadius(shockwave);
+      } else {
+        setGoalShockwaveRadius(0);
+      }
+
+      animId = requestAnimationFrame(frameLoop);
+    };
+
+    animId = requestAnimationFrame(frameLoop);
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  // Find player currently closest to the ball (possession highlight)
+  const activeCarrier = useMemo(() => {
+    let closestDist = Infinity;
+    let carrier: { isHome: boolean; number: number; x: number; y: number } | null = null;
+
+    for (const p of homePositions) {
+      const d = Math.hypot(p.x - renderedBall.x, p.y - renderedBall.y);
+      if (d < closestDist && d < 9.0) {
+        closestDist = d;
+        carrier = { isHome: true, number: p.number, x: p.x, y: p.y };
+      }
+    }
+    for (const p of awayPositions) {
+      const d = Math.hypot(p.x - renderedBall.x, p.y - renderedBall.y);
+      if (d < closestDist && d < 9.0) {
+        closestDist = d;
+        carrier = { isHome: false, number: p.number, x: p.x, y: p.y };
+      }
+    }
+    return carrier;
+  }, [homePositions, awayPositions, renderedBall.x, renderedBall.y]);
+
   return (
     <div className="b365-card p-4 space-y-4">
       {/* Header telemetry & Action Callout */}
@@ -139,7 +333,7 @@ export function MatchPitchRadar({
         <div className="flex items-center gap-2">
           <div className="h-3 w-3 rounded-full bg-accent animate-pulse" />
           <h3 className="font-mono text-sm font-bold uppercase tracking-wider text-white">
-            2D Tactical Radar • Match Engine Live Feed
+            2D Tactical Radar • 60 FPS Live Match Engine
           </h3>
         </div>
         <div className="flex items-center gap-3 text-xs font-mono">
@@ -154,22 +348,25 @@ export function MatchPitchRadar({
         </div>
       </div>
 
-      {/* Action Banner */}
+      {/* Action Banner with Goal Alert */}
       <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2 border border-line">
         <div className="flex items-center gap-2">
-          <span className={`inline-block h-2 w-2 rounded-full ${
-            dangerLevel === 3
-              ? "bg-loss animate-ping"
-              : dangerLevel === 2
-                ? "bg-gold animate-pulse"
-                : "bg-accent"
-          }`} />
-          <span className="font-mono text-xs font-semibold text-white">
-            {actionLabel}
+          <span
+            className={`inline-block h-2.5 w-2.5 rounded-full ${
+              targetState.dangerLevel === 3
+                ? "bg-loss animate-ping"
+                : targetState.dangerLevel === 2
+                  ? "bg-gold animate-pulse"
+                  : "bg-accent"
+            }`}
+          />
+          <span className="font-mono text-xs font-semibold text-white flex items-center gap-2">
+            {targetState.isGoal && <span className="text-gold font-black">⚽ GOAL!</span>}
+            {targetState.actionLabel}
           </span>
         </div>
         <div className="font-mono text-[11px] text-fog uppercase">
-          Pos: <span className="text-white font-bold">{ballPos.x.toFixed(0)}m, {ballPos.y.toFixed(0)}m</span>
+          Coords: <span className="text-white font-bold">{renderedBall.x.toFixed(1)}m, {renderedBall.y.toFixed(1)}m</span>
         </div>
       </div>
 
@@ -189,17 +386,24 @@ export function MatchPitchRadar({
 
             {/* Glowing filter for ball */}
             <filter id="ballGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="0.8" result="blur" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="0.6" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
 
-            {/* Radial danger zone glow */}
-            <radialGradient id="dangerGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#ef4444" stopOpacity="0.45" />
-              <stop offset="60%" stopColor="#ef4444" stopOpacity="0.15" />
+            {/* Shockwave gradient for goal celebration */}
+            <radialGradient id="goalShockwave" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#E5B869" stopOpacity="0.8" />
+              <stop offset="60%" stopColor="#E5B869" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#E5B869" stopOpacity="0" />
+            </radialGradient>
+
+            {/* Danger target glow */}
+            <radialGradient id="dangerReticle" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ef4444" stopOpacity="0.5" />
+              <stop offset="70%" stopColor="#ef4444" stopOpacity="0.12" />
               <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
             </radialGradient>
           </defs>
@@ -207,41 +411,44 @@ export function MatchPitchRadar({
           {/* Grass Background */}
           <rect x="0" y="0" width="105" height="68" fill="url(#turfPattern)" />
 
-          {/* Pitch Control Grid overlay (optional) */}
-          {showHeatZones && pitchControlGrid.map((cell) => {
-            const isHomeDominant = cell.controlScore > 0;
-            const opacity = Math.min(0.25, Math.abs(cell.controlScore) * 0.35);
-            const color = isHomeDominant ? "#E5B869" : "#38BDF8";
-            const w = 105 / 8;
-            const h = 68 / 6;
-            return (
-              <rect
-                key={`cell-${cell.col}-${cell.row}`}
-                x={cell.col * w}
-                y={cell.row * h}
-                width={w}
-                height={h}
-                fill={color}
-                fillOpacity={opacity}
-                stroke="#ffffff"
-                strokeOpacity={showPitchGrid ? 0.05 : 0}
-                strokeWidth={0.2}
-              />
-            );
-          })}
-
-          {/* Danger Zone Heat Indicator */}
-          {dangerLevel >= 2 && (
-            <circle
-              cx={(ballPos.x / 100) * 105}
-              cy={(ballPos.y / 100) * 68}
-              r={12}
-              fill="url(#dangerGlow)"
-              className="animate-pulse"
+          {/* Radar Sweep Line (Tactical Scan Broadcast Effect) */}
+          {showRadarSweep && (
+            <line
+              x1={radarScanX}
+              y1="2.5"
+              x2={radarScanX}
+              y2="65.5"
+              stroke="#38BDF8"
+              strokeWidth="0.6"
+              strokeOpacity="0.22"
             />
           )}
 
-          {/* PITCH MARKINGS (Standard White Lines 0.3px) */}
+          {/* Pitch Control Grid overlay (optional) */}
+          {showHeatZones &&
+            pitchControlGrid.map((cell) => {
+              const isHomeDominant = cell.controlScore > 0;
+              const opacity = Math.min(0.25, Math.abs(cell.controlScore) * 0.35);
+              const color = isHomeDominant ? "#E5B869" : "#38BDF8";
+              const w = 105 / 8;
+              const h = 68 / 6;
+              return (
+                <rect
+                  key={`cell-${cell.col}-${cell.row}`}
+                  x={cell.col * w}
+                  y={cell.row * h}
+                  width={w}
+                  height={h}
+                  fill={color}
+                  fillOpacity={opacity}
+                  stroke="#ffffff"
+                  strokeOpacity={showPitchGrid ? 0.05 : 0}
+                  strokeWidth={0.2}
+                />
+              );
+            })}
+
+          {/* PITCH MARKINGS */}
           <g stroke="#ffffff" strokeWidth="0.35" strokeOpacity="0.75" fill="none">
             {/* Outer Boundary */}
             <rect x="2.5" y="2.5" width="100" height="63" rx="0.5" />
@@ -251,18 +458,16 @@ export function MatchPitchRadar({
             <circle cx="52.5" cy="34" r="9.15" />
             <circle cx="52.5" cy="34" r="0.6" fill="#ffffff" />
 
-            {/* Left Box (Home Defending) */}
+            {/* Left Box (Home Box) */}
             <rect x="2.5" y="13.84" width="16.5" height="40.32" />
             <rect x="2.5" y="24.84" width="5.5" height="18.32" />
             <circle cx="13.5" cy="34" r="0.6" fill="#ffffff" />
-            {/* Penalty Arc */}
             <path d="M 19 27.5 A 9.15 9.15 0 0 1 19 40.5" />
 
-            {/* Right Box (Away Defending) */}
+            {/* Right Box (Away Box) */}
             <rect x="86" y="13.84" width="16.5" height="40.32" />
             <rect x="97" y="24.84" width="5.5" height="18.32" />
             <circle cx="91.5" cy="34" r="0.6" fill="#ffffff" />
-            {/* Penalty Arc */}
             <path d="M 86 27.5 A 9.15 9.15 0 0 0 86 40.5" />
 
             {/* Corner Arcs */}
@@ -271,25 +476,103 @@ export function MatchPitchRadar({
             <path d="M 102.5 3.5 A 1 1 0 0 1 101.5 2.5" />
             <path d="M 102.5 64.5 A 1 1 0 0 0 101.5 65.5" />
 
-            {/* Goals (Slightly outside boundary) */}
+            {/* Goals */}
             <rect x="0.5" y="30.34" width="2" height="7.32" strokeWidth="0.5" fill="#ffffff" fillOpacity="0.15" />
             <rect x="102.5" y="30.34" width="2" height="7.32" strokeWidth="0.5" fill="#ffffff" fillOpacity="0.15" />
           </g>
 
-          {/* HOME PLAYERS (Gold Dots) */}
+          {/* DANGER TARGET RETICLE */}
+          {targetState.dangerLevel >= 2 && (
+            <g>
+              <circle
+                cx={targetState.targetPos.x > 50 ? 94 : 11}
+                cy={34}
+                r={14}
+                fill="url(#dangerReticle)"
+              />
+              <circle
+                cx={targetState.targetPos.x > 50 ? 94 : 11}
+                cy={34}
+                r={6}
+                stroke="#ef4444"
+                strokeWidth="0.3"
+                strokeDasharray="1.5 1.5"
+                fill="none"
+              />
+            </g>
+          )}
+
+          {/* GOAL CELEBRATION SHOCKWAVE RINGS */}
+          {targetState.isGoal && goalShockwaveRadius > 0 && (
+            <g>
+              <circle
+                cx={targetState.targetPos.x > 50 ? 102.5 : 2.5}
+                cy={34}
+                r={goalShockwaveRadius}
+                fill="none"
+                stroke="#E5B869"
+                strokeWidth={0.8}
+                strokeOpacity={Math.max(0, 1 - goalShockwaveRadius / 36)}
+              />
+              <circle
+                cx={targetState.targetPos.x > 50 ? 102.5 : 2.5}
+                cy={34}
+                r={Math.max(0, goalShockwaveRadius - 8)}
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth={0.5}
+                strokeOpacity={Math.max(0, 1 - goalShockwaveRadius / 36)}
+              />
+            </g>
+          )}
+
+          {/* ACTIVE CARRIER POSSESSION AURA */}
+          {activeCarrier && (
+            <circle
+              cx={(activeCarrier.x / 100) * 105}
+              cy={(activeCarrier.y / 100) * 68}
+              r={3.8}
+              fill="none"
+              stroke={activeCarrier.isHome ? "#E5B869" : "#38BDF8"}
+              strokeWidth="0.4"
+              strokeOpacity="0.8"
+              strokeDasharray="2 1"
+            />
+          )}
+
+          {/* HOME PLAYERS (Gold Dots - smoothly animated at 60 FPS) */}
           <g id="home-players">
-            {homePlayers.map((p) => {
-              const px = (p.currentX / 100) * 105;
-              const py = (p.currentY / 100) * 68;
+            {homePositions.map((pos) => {
+              const baseData = targetHomePlayers.find((p) => p.number === pos.number);
+              const px = (pos.x / 100) * 105;
+              const py = (pos.y / 100) * 68;
+              const role = baseData?.role || "CM";
+              const title = ROLE_LABELS[role] || "Outfield Player";
+
               return (
-                <g key={`home-${p.number}`} className="transition-all duration-700 ease-out">
+                <g
+                  key={`home-${pos.number}`}
+                  className="cursor-pointer"
+                  onMouseEnter={() =>
+                    setHoveredPlayer({
+                      isHome: true,
+                      number: pos.number,
+                      role,
+                      title,
+                      rating: baseData?.rating || 7.2,
+                      x: px,
+                      y: py,
+                    })
+                  }
+                  onMouseLeave={() => setHoveredPlayer(null)}
+                >
                   <circle
                     cx={px}
                     cy={py}
-                    r={1.75}
+                    r={1.85}
                     fill="#E5B869"
                     stroke="#0B0E11"
-                    strokeWidth="0.4"
+                    strokeWidth="0.45"
                   />
                   {showPlayerNumbers && (
                     <text
@@ -301,7 +584,7 @@ export function MatchPitchRadar({
                       textAnchor="middle"
                       className="font-mono select-none"
                     >
-                      {p.number}
+                      {pos.number}
                     </text>
                   )}
                 </g>
@@ -309,20 +592,39 @@ export function MatchPitchRadar({
             })}
           </g>
 
-          {/* AWAY PLAYERS (Sky Blue Dots) */}
+          {/* AWAY PLAYERS (Sky Blue Dots - smoothly animated at 60 FPS) */}
           <g id="away-players">
-            {awayPlayers.map((p) => {
-              const px = (p.currentX / 100) * 105;
-              const py = (p.currentY / 100) * 68;
+            {awayPositions.map((pos) => {
+              const baseData = targetAwayPlayers.find((p) => p.number === pos.number);
+              const px = (pos.x / 100) * 105;
+              const py = (pos.y / 100) * 68;
+              const role = baseData?.role || "CM";
+              const title = ROLE_LABELS[role] || "Outfield Player";
+
               return (
-                <g key={`away-${p.number}`} className="transition-all duration-700 ease-out">
+                <g
+                  key={`away-${pos.number}`}
+                  className="cursor-pointer"
+                  onMouseEnter={() =>
+                    setHoveredPlayer({
+                      isHome: false,
+                      number: pos.number,
+                      role,
+                      title,
+                      rating: baseData?.rating || 7.2,
+                      x: px,
+                      y: py,
+                    })
+                  }
+                  onMouseLeave={() => setHoveredPlayer(null)}
+                >
                   <circle
                     cx={px}
                     cy={py}
-                    r={1.75}
+                    r={1.85}
                     fill="#38BDF8"
                     stroke="#0B0E11"
-                    strokeWidth="0.4"
+                    strokeWidth="0.45"
                   />
                   {showPlayerNumbers && (
                     <text
@@ -334,7 +636,7 @@ export function MatchPitchRadar({
                       textAnchor="middle"
                       className="font-mono select-none"
                     >
-                      {p.number}
+                      {pos.number}
                     </text>
                   )}
                 </g>
@@ -342,28 +644,86 @@ export function MatchPitchRadar({
             })}
           </g>
 
-          {/* BALL with pulsing tracking ring */}
-          <g className="transition-all duration-500 ease-out">
-            <circle
-              cx={(ballPos.x / 100) * 105}
-              cy={(ballPos.y / 100) * 68}
-              r={2.4}
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth="0.3"
-              strokeOpacity="0.75"
-              className="animate-ping"
+          {/* BALL MOTION TRAIL (Comet passing streak) */}
+          <g id="ball-flight-trail">
+            {trail.map((p, idx) => (
+              <circle
+                key={`trail-${idx}`}
+                cx={(p.x / 100) * 105}
+                cy={(p.y / 100) * 68 - p.z * 0.45}
+                r={Math.max(0.4, 1.2 - idx * 0.18)}
+                fill="#ffffff"
+                fillOpacity={p.opacity * (1 - idx / 6)}
+              />
+            ))}
+          </g>
+
+          {/* BALL & 2.5D DYNAMIC SHADOW */}
+          <g id="ball-group">
+            {/* Dynamic Ground Shadow */}
+            <ellipse
+              cx={(renderedBall.x / 100) * 105}
+              cy={(renderedBall.y / 100) * 68 + renderedBall.z * 0.35}
+              rx={1.2 + renderedBall.z * 0.15}
+              ry={0.6 + renderedBall.z * 0.1}
+              fill="#000000"
+              fillOpacity={Math.max(0.12, 0.45 - renderedBall.z * 0.04)}
             />
+
+            {/* Elevated Ball Sphere */}
             <circle
-              cx={(ballPos.x / 100) * 105}
-              cy={(ballPos.y / 100) * 68}
-              r={1.2}
+              cx={(renderedBall.x / 100) * 105}
+              cy={(renderedBall.y / 100) * 68 - renderedBall.z * 0.55}
+              r={1.25 + renderedBall.z * 0.12}
               fill="#ffffff"
               stroke="#111827"
               strokeWidth="0.3"
               filter="url(#ballGlow)"
             />
           </g>
+
+          {/* TACTICAL HOVER CARD (Clean Role & Squad Number — Zero Real Player Names) */}
+          {hoveredPlayer && (
+            <g
+              transform={`translate(${Math.max(12, Math.min(93, hoveredPlayer.x))}, ${Math.max(
+                10,
+                hoveredPlayer.y - 8
+              )})`}
+            >
+              <rect
+                x="-18"
+                y="-6.5"
+                width="36"
+                height="8.5"
+                rx="1"
+                fill="#0B0E11"
+                stroke={hoveredPlayer.isHome ? "#E5B869" : "#38BDF8"}
+                strokeWidth="0.35"
+                fillOpacity="0.95"
+              />
+              <text
+                x="0"
+                y="-3.5"
+                fontSize="1.6"
+                fontWeight="bold"
+                fill="#ffffff"
+                textAnchor="middle"
+                className="font-mono"
+              >
+                {hoveredPlayer.isHome ? fixture.home.shortName : fixture.away.shortName} #{hoveredPlayer.number} • {hoveredPlayer.role}
+              </text>
+              <text
+                x="0"
+                y="-1.0"
+                fontSize="1.15"
+                fill="#A1A1AA"
+                textAnchor="middle"
+                className="font-mono"
+              >
+                {hoveredPlayer.title}
+              </text>
+            </g>
+          )}
         </svg>
       </div>
 
@@ -413,11 +773,11 @@ export function MatchPitchRadar({
         <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
           <input
             type="checkbox"
-            checked={showHeatZones}
-            onChange={(e) => setShowHeatZones(e.target.checked)}
+            checked={showRadarSweep}
+            onChange={(e) => setShowRadarSweep(e.target.checked)}
             className="rounded border-line text-accent focus:ring-0"
           />
-          Spatial Control Heatmap
+            Tactical Scanline Beam
         </label>
         <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
           <input
@@ -426,16 +786,16 @@ export function MatchPitchRadar({
             onChange={(e) => setShowPlayerNumbers(e.target.checked)}
             className="rounded border-line text-accent focus:ring-0"
           />
-          Player Numbers
+          Squad Numbers
         </label>
         <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
           <input
             type="checkbox"
-            checked={showPitchGrid}
-            onChange={(e) => setShowPitchGrid(e.target.checked)}
+            checked={showHeatZones}
+            onChange={(e) => setShowHeatZones(e.target.checked)}
             className="rounded border-line text-accent focus:ring-0"
           />
-          Grid Subdivisions
+          Spatial Control Heatmap
         </label>
       </div>
     </div>

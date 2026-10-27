@@ -22,11 +22,22 @@ interface SimulatedSquadPlayer {
   isSub: boolean;
 }
 
-const PLAYER_NAME_POOL = {
-  gk: ["Alisson", "Courtois", "Ederson", "Oblak", "Ter Stegen", "Donnarumma", "Maignan", "Raya"],
-  def: ["Van Dijk", "Dias", "Saliba", "Rüdiger", "Militão", "Bastoni", "Gabriel", "Gvardiol", "Alexander-Arnold", "Robertson", "Hakimi", "Theo Hernández", "Carvajal", "Walker", "Davies", "Koundé"],
-  mid: ["De Bruyne", "Rodri", "Bellingham", "Kroos", "Modrić", "Pedri", "Valverde", "Rice", "Ødegaard", "Barella", "Camavinga", "Bernardo Silva", "Fernandes", "Gündogan", "Mac Allister", "Wirtz"],
-  att: ["Haaland", "Mbappé", "Vinícius Jr", "Salah", "Kane", "Saka", "Foden", "Rodrygo", "Griezmann", "Lautaro Martínez", "Musiala", "Leão", "Son", "Osimhen", "Palmer", "Alvarez"],
+const ROLE_FULL_NAMES: Record<PlayerRole, string> = {
+  GK: "Starting Goalkeeper",
+  CB: "Central Defender",
+  LB: "Left Wingback",
+  RB: "Right Wingback",
+  LWB: "Left Attacking Wingback",
+  RWB: "Right Attacking Wingback",
+  CDM: "Defensive Pivot Midfielder",
+  CM: "Box-to-Box Midfielder",
+  CAM: "Advanced Playmaker",
+  LM: "Left Wide Midfielder",
+  RM: "Right Wide Midfielder",
+  LW: "Left Inverted Winger",
+  RW: "Right Inverted Winger",
+  ST: "Center Forward Striker",
+  CF: "Second Striker",
 };
 
 function generateSquadForClub(clubName: string, clubShort: string, attackRating: number, defenseRating: number): SimulatedSquadPlayer[] {
@@ -36,7 +47,7 @@ function generateSquadForClub(clubName: string, clubShort: string, attackRating:
   // 1 Goalkeeper
   players.push({
     number: 1,
-    name: PLAYER_NAME_POOL.gk[seed % PLAYER_NAME_POOL.gk.length] || `${clubShort} Keeper`,
+    name: `${clubShort} Goalkeeper`,
     role: "GK",
     rating: Number((7.0 + (defenseRating - 1.0) * 2.5).toFixed(1)),
     stamina: 96,
@@ -49,12 +60,12 @@ function generateSquadForClub(clubName: string, clubShort: string, attackRating:
 
   // 4 Defenders
   const defRoles: PlayerRole[] = ["RB", "CB", "CB", "LB"];
+  const defTitles = ["Right Wingback", "Central Stopper", "Ball-Playing Defender", "Left Wingback"];
   const defNumbers = [2, 4, 5, 3];
   for (let i = 0; i < 4; i++) {
-    const pName = PLAYER_NAME_POOL.def[(seed * (i + 1) * 3) % PLAYER_NAME_POOL.def.length] || `Def ${i + 1}`;
     players.push({
       number: defNumbers[i] || (i + 2),
-      name: pName,
+      name: `${clubShort} ${defTitles[i]}`,
       role: defRoles[i] || "CB",
       rating: Number((6.8 + (defenseRating - 1.0) * 2.8 + (i % 3) * 0.2).toFixed(1)),
       stamina: 88 - i * 3,
@@ -68,12 +79,12 @@ function generateSquadForClub(clubName: string, clubShort: string, attackRating:
 
   // 3 Midfielders
   const midRoles: PlayerRole[] = ["CDM", "CM", "CAM"];
+  const midTitles = ["Defensive Pivot", "Box-to-Box Engine", "Central Playmaker"];
   const midNumbers = [6, 8, 10];
   for (let i = 0; i < 3; i++) {
-    const pName = PLAYER_NAME_POOL.mid[(seed * (i + 5) * 7) % PLAYER_NAME_POOL.mid.length] || `Mid ${i + 1}`;
     players.push({
       number: midNumbers[i] || (i + 6),
-      name: pName,
+      name: `${clubShort} ${midTitles[i]}`,
       role: midRoles[i] || "CM",
       rating: Number((7.1 + ((attackRating + defenseRating) / 2 - 1.0) * 2.8 + (i % 2) * 0.3).toFixed(1)),
       stamina: 82 - i * 4,
@@ -87,12 +98,12 @@ function generateSquadForClub(clubName: string, clubShort: string, attackRating:
 
   // 3 Attackers
   const attRoles: PlayerRole[] = ["RW", "ST", "LW"];
+  const attTitles = ["Right Inverted Winger", "Center Forward", "Left Inverted Winger"];
   const attNumbers = [7, 9, 11];
   for (let i = 0; i < 3; i++) {
-    const pName = PLAYER_NAME_POOL.att[(seed * (i + 9) * 11) % PLAYER_NAME_POOL.att.length] || `Att ${i + 1}`;
     players.push({
       number: attNumbers[i] || (i + 9),
-      name: pName,
+      name: `${clubShort} ${attTitles[i]}`,
       role: attRoles[i] || "ST",
       rating: Number((7.3 + (attackRating - 1.0) * 3.2 + (i % 2) * 0.4).toFixed(1)),
       stamina: 78 - i * 5,
@@ -108,12 +119,13 @@ function generateSquadForClub(clubName: string, clubShort: string, attackRating:
   const subNumbers = [12, 14, 17, 18, 20, 21, 23];
   const subRoles: PlayerRole[] = ["GK", "CB", "LB", "CM", "CAM", "RW", "ST"];
   for (let i = 0; i < 7; i++) {
+    const role = subRoles[i] || "CM";
     players.push({
       number: subNumbers[i] || (i + 15),
-      name: `Sub ${clubShort} #${subNumbers[i]}`,
-      role: subRoles[i] || "CM",
+      name: `${clubShort} Reserve ${ROLE_FULL_NAMES[role]} #${subNumbers[i]}`,
+      role,
       rating: Number((6.5 + (attackRating - 1.0) * 2.0).toFixed(1)),
-      stamina: 100,
+      stamina: 95,
       goals: 0,
       assists: 0,
       yellowCard: false,
@@ -221,7 +233,7 @@ export function PlayerRosterRadar({ fixture, events = [] }: PlayerRosterRadarPro
           <thead>
             <tr className="border-b border-line text-[10px] text-fog uppercase">
               <th className="py-2 px-3">#</th>
-              <th className="py-2 px-3">Player</th>
+              <th className="py-2 px-3">Squad Role / Position</th>
               <th className="py-2 px-3">Role</th>
               <th className="py-2 px-3">Rating</th>
               <th className="py-2 px-3">Stamina</th>
